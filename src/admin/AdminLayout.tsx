@@ -5,6 +5,7 @@ import {
   Users, 
   ShoppingCart, 
   Settings, 
+  Package,
   LogOut,
   Menu,
   X,
@@ -15,6 +16,7 @@ const menuItems = [
   { path: '/admin', icon: LayoutDashboard, label: 'Dashboard' },
   { path: '/admin/users', icon: Users, label: 'Users' },
   { path: '/admin/orders', icon: ShoppingCart, label: 'Orders' },
+  { path: '/admin/products', icon: Package, label: 'Products' },
   { path: '/admin/settings', icon: Settings, label: 'Settings' },
 ];
 
