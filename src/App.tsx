@@ -48,7 +48,9 @@ function App() {
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<Dashboard />} />
               <Route path="users" element={<Users />} />
-              <Route path="orders" element={<Orders />} />
+             <Route path="orders" element={<Orders />} />
+<Route path="products" element={<Products />} />
+<Route path="settings" element={<Settings />} />
             </Route>
 
             {/* Frontend Routes */}
