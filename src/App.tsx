@@ -23,7 +23,8 @@ import AdminLogin from './admin/AdminLogin';
 import Dashboard from './admin/Dashboard';
 import Users from './admin/Users';
 import Orders from './admin/Orders';
-
+import Products from './admin/Products';
+import Settings from './admin/Settings';
 import './App.css';
 
 gsap.registerPlugin(ScrollTrigger);
