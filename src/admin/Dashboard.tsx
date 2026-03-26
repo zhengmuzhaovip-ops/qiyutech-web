@@ -77,17 +77,6 @@ export default function Dashboard() {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    const colors: Record<string, string> = {
-      pending: 'bg-yellow-500',
-      processing: 'bg-blue-500',
-      shipped: 'bg-purple-500',
-      delivered: 'bg-green-500',
-      cancelled: 'bg-red-500'
-    };
-    return colors[status] || 'bg-gray-500';
-  };
-
   const getStatusBadge = (status: string) => {
     const styles: Record<string, string> = {
       pending: 'bg-yellow-100 text-yellow-700',
