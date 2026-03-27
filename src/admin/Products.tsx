@@ -1,16 +1,20 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Pencil, Trash2, Search, AlertTriangle, Upload, X } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, AlertTriangle, Upload, X, ToggleLeft, ToggleRight } from 'lucide-react';
 import { API_BASE_URL } from '../config';
 
 interface Product {
   _id: string;
   name: string;
+  description: string;
+  shortDescription: string;
   category: string;
   price: number;
+  comparePrice: number;
   stock: number;
+  sku: string;
+  brand: string;
   isActive: boolean;
   isFeatured: boolean;
-  brand: string;
   images: string[];
   createdAt: string;
 }
@@ -44,6 +48,7 @@ export default function Products() {
   const [isSaving, setIsSaving] = useState(false);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const LIMIT = 20;
 
@@ -61,7 +66,8 @@ export default function Products() {
         ...(search && { search }),
         ...(categoryFilter && { category: categoryFilter }),
       });
-      const res = await fetch(`${API_BASE_URL}/admin/products?${params}`, {
+      // ✅ 修复：使用正确的后端路由 /api/products/admin/all
+      const res = await fetch(`${API_BASE_URL}/products/admin/all?${params}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
@@ -83,23 +89,52 @@ export default function Products() {
     setShowModal(true);
   };
 
+  // ✅ 修复：编辑时带入所有字段，包括 description
   const openEdit = (product: Product) => {
     setEditingProduct(product);
     setForm({
       name: product.name,
-      description: '',
-      shortDescription: '',
+      description: product.description || '',
+      shortDescription: product.shortDescription || '',
       price: String(product.price),
-      comparePrice: '',
+      comparePrice: String(product.comparePrice || ''),
       category: product.category,
       brand: product.brand || '',
       stock: String(product.stock),
-      sku: '',
+      sku: product.sku || '',
       isFeatured: product.isFeatured,
       isActive: product.isActive,
     });
     setImages(product.images || []);
     setShowModal(true);
+  };
+
+  // ✅ 新增：快捷上下架切换
+  const handleToggleActive = async (product: Product) => {
+    setTogglingId(product._id);
+    try {
+      const token = localStorage.getItem('adminToken');
+      const res = await fetch(`${API_BASE_URL}/products/${product._id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ isActive: !product.isActive })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setProducts(prev =>
+          prev.map(p => p._id === product._id ? { ...p, isActive: !p.isActive } : p)
+        );
+      } else {
+        alert(data.message || 'Toggle failed');
+      }
+    } catch (err) {
+      alert('Network error, please try again');
+    } finally {
+      setTogglingId(null);
+    }
   };
 
   const handleImageUpload = async (files: FileList) => {
@@ -137,7 +172,7 @@ export default function Products() {
 
   const handleSave = async () => {
     if (!form.name || !form.description || !form.price || !form.stock) {
-      alert('Please fill in all required fields');
+      alert('Please fill in all required fields (Name, Description, Price, Stock)');
       return;
     }
     setIsSaving(true);
@@ -152,8 +187,8 @@ export default function Products() {
       };
 
       const url = editingProduct
-        ? `${API_BASE_URL}/admin/products/${editingProduct._id}`
-        : `${API_BASE_URL}/admin/products`;
+        ? `${API_BASE_URL}/products/${editingProduct._id}`
+        : `${API_BASE_URL}/products`;
       const method = editingProduct ? 'PUT' : 'POST';
 
       const res = await fetch(url, {
@@ -173,23 +208,29 @@ export default function Products() {
         alert(data.message || 'Save failed');
       }
     } catch (err) {
-      console.error(err);
+      alert('Network error, please try again');
     } finally {
       setIsSaving(false);
     }
   };
 
+  // ✅ 修复：删除有错误提示，且使用正确路由
   const handleDelete = async (id: string) => {
-    if (!confirm('Delete this product?')) return;
+    if (!confirm('Are you sure you want to delete this product? This action cannot be undone.')) return;
     try {
       const token = localStorage.getItem('adminToken');
-      await fetch(`${API_BASE_URL}/admin/products/${id}`, {
+      const res = await fetch(`${API_BASE_URL}/products/${id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
       });
-      fetchProducts();
+      const data = await res.json();
+      if (data.success) {
+        fetchProducts();
+      } else {
+        alert(data.message || 'Delete failed');
+      }
     } catch (err) {
-      console.error(err);
+      alert('Network error, please try again');
     }
   };
 
@@ -247,8 +288,16 @@ export default function Products() {
                 <tr key={product._id} className="hover:bg-gray-50">
                   <td className="p-4">
                     <div className="flex items-center gap-3">
+                      {/* ✅ 修复：图片显示，加 onError 回退 */}
                       {product.images?.[0] ? (
-                        <img src={product.images[0]} alt={product.name} className="w-10 h-10 rounded-lg object-cover bg-gray-100" />
+                        <img
+                          src={product.images[0]}
+                          alt={product.name}
+                          className="w-10 h-10 rounded-lg object-cover bg-gray-100"
+                          onError={e => {
+                            (e.target as HTMLImageElement).style.display = 'none';
+                          }}
+                        />
                       ) : (
                         <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400 text-xs">No img</div>
                       )}
@@ -269,16 +318,32 @@ export default function Products() {
                     </span>
                   </td>
                   <td className="p-4">
-                    <span className={`text-xs px-2 py-1 rounded-full ${product.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                    {/* ✅ 新增：点击 badge 快速切换上下架 */}
+                    <button
+                      onClick={() => handleToggleActive(product)}
+                      disabled={togglingId === product._id}
+                      className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full transition-colors ${
+                        product.isActive
+                          ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                          : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                      } ${togglingId === product._id ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                    >
+                      {togglingId === product._id ? (
+                        <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
+                      ) : product.isActive ? (
+                        <ToggleRight size={14} />
+                      ) : (
+                        <ToggleLeft size={14} />
+                      )}
                       {product.isActive ? 'Active' : 'Inactive'}
-                    </span>
+                    </button>
                   </td>
                   <td className="p-4">
                     <div className="flex items-center gap-2">
-                      <button onClick={() => openEdit(product)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                      <button onClick={() => openEdit(product)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit">
                         <Pencil size={16} />
                       </button>
-                      <button onClick={() => handleDelete(product._id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                      <button onClick={() => handleDelete(product._id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
                         <Trash2 size={16} />
                       </button>
                     </div>
@@ -325,6 +390,11 @@ export default function Products() {
                   <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })}
                     rows={3} className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Short Description</label>
+                  <input type="text" value={form.shortDescription} onChange={e => setForm({ ...form, shortDescription: e.target.value })}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Price ($) *</label>
                   <input type="number" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })}
@@ -369,7 +439,9 @@ export default function Products() {
                       {images.map((url, index) => (
                         <div key={index} className="relative group">
                           <img src={url} alt={`Product ${index + 1}`}
-                            className="w-20 h-20 object-cover rounded-lg border border-gray-200" />
+                            className="w-20 h-20 object-cover rounded-lg border border-gray-200"
+                            onError={e => { (e.target as HTMLImageElement).src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80"><rect width="80" height="80" fill="%23f3f4f6"/><text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="%239ca3af" font-size="10">Error</text></svg>'; }}
+                          />
                           <button onClick={() => removeImage(index)}
                             className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                             <X size={12} />
@@ -430,3 +502,4 @@ export default function Products() {
     </div>
   );
 }
+
