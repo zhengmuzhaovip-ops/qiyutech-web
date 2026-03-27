@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Pencil, Trash2, Search, AlertTriangle, Upload, X, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, AlertTriangle, Upload, X, ToggleLeft, ToggleRight, Trash } from 'lucide-react';
 import { API_BASE_URL } from '../config';
 
 interface Product {
@@ -52,29 +52,22 @@ export default function Products() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const LIMIT = 20;
 
-  useEffect(() => {
-    fetchProducts();
-  }, [search, categoryFilter, page]);
+  useEffect(() => { fetchProducts(); }, [search, categoryFilter, page]);
 
   const fetchProducts = async () => {
     setIsLoading(true);
     try {
       const token = localStorage.getItem('adminToken');
       const params = new URLSearchParams({
-        page: String(page),
-        limit: String(LIMIT),
+        page: String(page), limit: String(LIMIT),
         ...(search && { search }),
         ...(categoryFilter && { category: categoryFilter }),
       });
-      // ✅ 修复：使用正确的后端路由 /api/products/admin/all
       const res = await fetch(`${API_BASE_URL}/products/admin/all?${params}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
-      if (data.success) {
-        setProducts(data.products);
-        setTotal(data.total);
-      }
+      if (data.success) { setProducts(data.products); setTotal(data.total); }
     } catch (err) {
       console.error(err);
     } finally {
@@ -83,13 +76,9 @@ export default function Products() {
   };
 
   const openCreate = () => {
-    setEditingProduct(null);
-    setForm(emptyForm);
-    setImages([]);
-    setShowModal(true);
+    setEditingProduct(null); setForm(emptyForm); setImages([]); setShowModal(true);
   };
 
-  // ✅ 修复：编辑时带入所有字段，包括 description
   const openEdit = (product: Product) => {
     setEditingProduct(product);
     setForm({
@@ -109,129 +98,92 @@ export default function Products() {
     setShowModal(true);
   };
 
-  // ✅ 新增：快捷上下架切换
   const handleToggleActive = async (product: Product) => {
     setTogglingId(product._id);
     try {
       const token = localStorage.getItem('adminToken');
       const res = await fetch(`${API_BASE_URL}/products/${product._id}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ isActive: !product.isActive })
       });
       const data = await res.json();
       if (data.success) {
-        setProducts(prev =>
-          prev.map(p => p._id === product._id ? { ...p, isActive: !p.isActive } : p)
-        );
+        setProducts(prev => prev.map(p => p._id === product._id ? { ...p, isActive: !p.isActive } : p));
       } else {
         alert(data.message || 'Toggle failed');
       }
-    } catch (err) {
-      alert('Network error, please try again');
-    } finally {
-      setTogglingId(null);
-    }
+    } catch { alert('Network error'); }
+    finally { setTogglingId(null); }
   };
 
   const handleImageUpload = async (files: FileList) => {
-    if (images.length + files.length > 5) {
-      alert('Maximum 5 images allowed');
-      return;
-    }
+    if (images.length + files.length > 5) { alert('Maximum 5 images allowed'); return; }
     setIsUploading(true);
     try {
       const token = localStorage.getItem('adminToken');
       const formData = new FormData();
       Array.from(files).forEach(file => formData.append('images', file));
-
       const res = await fetch(`${API_BASE_URL}/upload/images`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData
+        method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: formData
       });
       const data = await res.json();
-      if (data.success) {
-        setImages(prev => [...prev, ...data.urls]);
-      } else {
-        alert(data.message || 'Upload failed');
-      }
-    } catch (err) {
-      alert('Upload failed, please try again');
-    } finally {
-      setIsUploading(false);
-    }
+      if (data.success) { setImages(prev => [...prev, ...data.urls]); }
+      else { alert(data.message || 'Upload failed'); }
+    } catch { alert('Upload failed'); }
+    finally { setIsUploading(false); }
   };
 
-  const removeImage = (index: number) => {
-    setImages(prev => prev.filter((_, i) => i !== index));
-  };
+  const removeImage = (index: number) => setImages(prev => prev.filter((_, i) => i !== index));
 
   const handleSave = async () => {
     if (!form.name || !form.description || !form.price || !form.stock) {
-      alert('Please fill in all required fields (Name, Description, Price, Stock)');
-      return;
+      alert('Please fill in all required fields (Name, Description, Price, Stock)'); return;
     }
     setIsSaving(true);
     try {
       const token = localStorage.getItem('adminToken');
-      const payload = {
-        ...form,
-        price: Number(form.price),
-        comparePrice: Number(form.comparePrice) || 0,
-        stock: Number(form.stock),
-        images,
-      };
-
-      const url = editingProduct
-        ? `${API_BASE_URL}/products/${editingProduct._id}`
-        : `${API_BASE_URL}/products`;
+      const payload = { ...form, price: Number(form.price), comparePrice: Number(form.comparePrice) || 0, stock: Number(form.stock), images };
+      const url = editingProduct ? `${API_BASE_URL}/products/${editingProduct._id}` : `${API_BASE_URL}/products`;
       const method = editingProduct ? 'PUT' : 'POST';
-
       const res = await fetch(url, {
         method,
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify(payload)
       });
-
       const data = await res.json();
-      if (data.success) {
-        setShowModal(false);
-        fetchProducts();
-      } else {
-        alert(data.message || 'Save failed');
-      }
-    } catch (err) {
-      alert('Network error, please try again');
-    } finally {
-      setIsSaving(false);
-    }
+      if (data.success) { setShowModal(false); fetchProducts(); }
+      else { alert(data.message || 'Save failed'); }
+    } catch { alert('Network error'); }
+    finally { setIsSaving(false); }
   };
 
-  // ✅ 修复：删除有错误提示，且使用正确路由
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this product? This action cannot be undone.')) return;
+  // 软删除（下架）
+  const handleSoftDelete = async (id: string) => {
+    if (!confirm('Archive this product? It will be set to Inactive.')) return;
     try {
       const token = localStorage.getItem('adminToken');
       const res = await fetch(`${API_BASE_URL}/products/${id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` }
+        method: 'DELETE', headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
-      if (data.success) {
-        fetchProducts();
-      } else {
-        alert(data.message || 'Delete failed');
-      }
-    } catch (err) {
-      alert('Network error, please try again');
-    }
+      if (data.success) { fetchProducts(); }
+      else { alert(data.message || 'Failed'); }
+    } catch { alert('Network error'); }
+  };
+
+  // ✅ 新增：真删除（从数据库彻底移除）
+  const handleHardDelete = async (id: string, name: string) => {
+    if (!confirm(`⚠️ Permanently delete "${name}"?\n\nThis CANNOT be undone. The product will be completely removed from the database.`)) return;
+    try {
+      const token = localStorage.getItem('adminToken');
+      const res = await fetch(`${API_BASE_URL}/products/${id}/permanent`, {
+        method: 'DELETE', headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) { fetchProducts(); }
+      else { alert(data.message || 'Failed to delete'); }
+    } catch { alert('Network error'); }
   };
 
   return (
@@ -240,8 +192,7 @@ export default function Products() {
         <h2 className="font-display text-2xl text-gray-800">Products Management</h2>
         <button onClick={openCreate}
           className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm">
-          <Plus size={16} />
-          Add Product
+          <Plus size={16} /> Add Product
         </button>
       </div>
 
@@ -255,9 +206,7 @@ export default function Products() {
         <select value={categoryFilter} onChange={e => { setCategoryFilter(e.target.value); setPage(1); }}
           className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
           <option value="">All Categories</option>
-          {CATEGORIES.map(c => (
-            <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>
-          ))}
+          {CATEGORIES.map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
         </select>
       </div>
 
@@ -265,6 +214,7 @@ export default function Products() {
         <div className="p-4 border-b border-gray-100">
           <span className="text-sm text-gray-500">{total} products total</span>
         </div>
+
         {isLoading ? (
           <div className="flex justify-center p-12">
             <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
@@ -288,16 +238,10 @@ export default function Products() {
                 <tr key={product._id} className="hover:bg-gray-50">
                   <td className="p-4">
                     <div className="flex items-center gap-3">
-                      {/* ✅ 修复：图片显示，加 onError 回退 */}
                       {product.images?.[0] ? (
-                        <img
-                          src={product.images[0]}
-                          alt={product.name}
+                        <img src={product.images[0]} alt={product.name}
                           className="w-10 h-10 rounded-lg object-cover bg-gray-100"
-                          onError={e => {
-                            (e.target as HTMLImageElement).style.display = 'none';
-                          }}
-                        />
+                          onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                       ) : (
                         <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400 text-xs">No img</div>
                       )}
@@ -318,33 +262,28 @@ export default function Products() {
                     </span>
                   </td>
                   <td className="p-4">
-                    {/* ✅ 新增：点击 badge 快速切换上下架 */}
-                    <button
-                      onClick={() => handleToggleActive(product)}
-                      disabled={togglingId === product._id}
-                      className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full transition-colors ${
-                        product.isActive
-                          ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                          : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                      } ${togglingId === product._id ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-                    >
-                      {togglingId === product._id ? (
-                        <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
-                      ) : product.isActive ? (
-                        <ToggleRight size={14} />
-                      ) : (
-                        <ToggleLeft size={14} />
-                      )}
+                    <button onClick={() => handleToggleActive(product)} disabled={togglingId === product._id}
+                      className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full transition-colors ${product.isActive ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'} ${togglingId === product._id ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
+                      {togglingId === product._id
+                        ? <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
+                        : product.isActive ? <ToggleRight size={14} /> : <ToggleLeft size={14} />}
                       {product.isActive ? 'Active' : 'Inactive'}
                     </button>
                   </td>
                   <td className="p-4">
-                    <div className="flex items-center gap-2">
-                      <button onClick={() => openEdit(product)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit">
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => openEdit(product)}
+                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit">
                         <Pencil size={16} />
                       </button>
-                      <button onClick={() => handleDelete(product._id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
+                      <button onClick={() => handleSoftDelete(product._id)}
+                        className="p-2 text-orange-500 hover:bg-orange-50 rounded-lg transition-colors" title="Archive (soft delete)">
                         <Trash2 size={16} />
+                      </button>
+                      {/* ✅ 真删除按钮，红色加深区分 */}
+                      <button onClick={() => handleHardDelete(product._id, product.name)}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Permanently delete">
+                        <Trash size={16} />
                       </button>
                     </div>
                   </td>
@@ -371,12 +310,8 @@ export default function Products() {
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-gray-100 flex items-center justify-between">
-              <h3 className="font-display text-xl text-gray-800">
-                {editingProduct ? 'Edit Product' : 'Add New Product'}
-              </h3>
-              <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
-                <X size={20} />
-              </button>
+              <h3 className="font-display text-xl text-gray-800">{editingProduct ? 'Edit Product' : 'Add New Product'}</h3>
+              <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-100 rounded-lg"><X size={20} /></button>
             </div>
             <div className="p-6 space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -409,9 +344,7 @@ export default function Products() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Category *</label>
                   <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    {CATEGORIES.map(c => (
-                      <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>
-                    ))}
+                    {CATEGORIES.map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
                   </select>
                 </div>
                 <div>
@@ -431,24 +364,18 @@ export default function Products() {
                 </div>
 
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Product Images <span className="text-gray-400 font-normal">(max 5)</span>
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Product Images <span className="text-gray-400 font-normal">(max 5)</span></label>
                   {images.length > 0 && (
                     <div className="flex flex-wrap gap-2 mb-3">
                       {images.map((url, index) => (
                         <div key={index} className="relative group">
-                          <img src={url} alt={`Product ${index + 1}`}
-                            className="w-20 h-20 object-cover rounded-lg border border-gray-200"
-                            onError={e => { (e.target as HTMLImageElement).src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80"><rect width="80" height="80" fill="%23f3f4f6"/><text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="%239ca3af" font-size="10">Error</text></svg>'; }}
-                          />
+                          <img src={url} alt={`Product ${index + 1}`} className="w-20 h-20 object-cover rounded-lg border border-gray-200"
+                            onError={e => { (e.target as HTMLImageElement).src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80"><rect width="80" height="80" fill="%23f3f4f6"/><text x="50%" y="50%" text-anchor="middle" dy=".3em" fill="%239ca3af" font-size="10">Error</text></svg>'; }} />
                           <button onClick={() => removeImage(index)}
                             className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                             <X size={12} />
                           </button>
-                          {index === 0 && (
-                            <span className="absolute bottom-1 left-1 text-xs bg-blue-600 text-white px-1 rounded">Main</span>
-                          )}
+                          {index === 0 && <span className="absolute bottom-1 left-1 text-xs bg-blue-600 text-white px-1 rounded">Main</span>}
                         </div>
                       ))}
                     </div>
@@ -476,13 +403,11 @@ export default function Products() {
 
                 <div className="flex items-center gap-6">
                   <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={form.isFeatured}
-                      onChange={e => setForm({ ...form, isFeatured: e.target.checked })} className="rounded" />
+                    <input type="checkbox" checked={form.isFeatured} onChange={e => setForm({ ...form, isFeatured: e.target.checked })} className="rounded" />
                     <span className="text-sm text-gray-700">Featured</span>
                   </label>
                   <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={form.isActive}
-                      onChange={e => setForm({ ...form, isActive: e.target.checked })} className="rounded" />
+                    <input type="checkbox" checked={form.isActive} onChange={e => setForm({ ...form, isActive: e.target.checked })} className="rounded" />
                     <span className="text-sm text-gray-700">Active</span>
                   </label>
                 </div>
@@ -502,4 +427,3 @@ export default function Products() {
     </div>
   );
 }
-
