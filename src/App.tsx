@@ -10,6 +10,7 @@ import Footer from './sections/Footer';
 
 // Frontend Pages
 import Home from './pages/Home';
+import ProductsPage from './pages/ProductsPage';   // ✅ 新增前台商品列表页
 import ProductDetail from './pages/ProductDetail';
 import Cart from './pages/Cart';
 import Checkout from './pages/Checkout';
@@ -33,10 +34,7 @@ function App() {
   useEffect(() => {
     document.documentElement.style.scrollBehavior = 'smooth';
     ScrollTrigger.refresh();
-
-    return () => {
-      ScrollTrigger.getAll().forEach((trigger) => trigger.kill());
-    };
+    return () => { ScrollTrigger.getAll().forEach((trigger) => trigger.kill()); };
   }, []);
 
   return (
@@ -61,6 +59,7 @@ function App() {
                 <main>
                   <Routes>
                     <Route path="/" element={<Home />} />
+                    <Route path="/products" element={<ProductsPage />} />  {/* ✅ 新增 */}
                     <Route path="/product/:id" element={<ProductDetail />} />
                     <Route path="/cart" element={<Cart />} />
                     <Route path="/checkout" element={<Checkout />} />
