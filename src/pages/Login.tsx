@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, Mail, Lock } from 'lucide-react';
+import { API_BASE_URL } from '../config';
 
 export default function Login() {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -14,15 +16,44 @@ export default function Login() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    
-    // Simulate login
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    // Store user info in localStorage (demo only)
-    localStorage.setItem('user', JSON.stringify({ email: formData.email, name: 'User' }));
-    
-    setIsLoading(false);
-    navigate('/account');
+    setError('');
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (data.success) {
+        // 存储 token 和用户信息
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify({
+          id: data.user.id,
+          name: `${data.user.firstName} ${data.user.lastName}`,
+          email: data.user.email,
+          role: data.user.role,
+        }));
+
+        // 管理员跳转后台，普通用户跳转账户页
+        if (data.user.role === 'admin') {
+          navigate('/admin');
+        } else {
+          navigate('/account');
+        }
+      } else {
+        setError(data.message || 'Invalid email or password');
+      }
+    } catch (err) {
+      setError('Network error. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -34,6 +65,12 @@ export default function Login() {
         </div>
 
         <div className="bg-white rounded-xl p-8 border border-gray-100 shadow-sm">
+          {error && (
+            <div className="mb-6 bg-red-50 border border-red-200 text-red-600 rounded-lg px-4 py-3 text-sm">
+              {error}
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label className="text-gray-500 text-sm mb-2 block">Email</label>
@@ -42,7 +79,7 @@ export default function Login() {
                   type="email"
                   required
                   value={formData.email}
-                  onChange={(e) => setFormData({...formData, email: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-gray-800 placeholder:text-gray-400 focus:outline-none focus:border-brand-blue pl-12"
                   placeholder="you@example.com"
                 />
@@ -57,7 +94,7 @@ export default function Login() {
                   type={showPassword ? 'text' : 'password'}
                   required
                   value={formData.password}
-                  onChange={(e) => setFormData({...formData, password: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-gray-800 placeholder:text-gray-400 focus:outline-none focus:border-brand-blue pl-12 pr-12"
                   placeholder="••••••••"
                 />
