@@ -5,7 +5,7 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { ShoppingCart, Star, TrendingUp } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 import { useCart } from '../context/CartContext';
-import { useProducts, ApiProduct } from '../hooks/useProducts';
+import { useProducts, type ApiProduct } from '../hooks/useProducts';
 
 gsap.registerPlugin(ScrollTrigger);
 
