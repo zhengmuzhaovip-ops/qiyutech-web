@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ShoppingCart, Search, SlidersHorizontal, Eye, X } from 'lucide-react';
 import { useCart } from '../context/CartContext';
-import { useProducts, ApiProduct } from '../hooks/useProducts';
+import { useProducts, type ApiProduct } from '../hooks/useProducts';
 
 const CATEGORIES = ['disposable', 'pod', 'mod', 'juice', 'accessory', 'other'];
 const SORT_OPTIONS = [
