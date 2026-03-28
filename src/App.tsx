@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
@@ -10,7 +10,7 @@ import Footer from './sections/Footer';
 
 // Frontend Pages
 import Home from './pages/Home';
-import ProductsPage from './pages/ProductsPage';   // ✅ 新增前台商品列表页
+import ProductsPage from './pages/ProductsPage';
 import ProductDetail from './pages/ProductDetail';
 import Cart from './pages/Cart';
 import Checkout from './pages/Checkout';
@@ -30,6 +30,36 @@ import './App.css';
 
 gsap.registerPlugin(ScrollTrigger);
 
+// Admin 路由保护组件 - 必须是 admin 角色才能访问
+function AdminGuard({ children }: { children: React.ReactNode }) {
+  const token = localStorage.getItem('token');
+  const userStr = localStorage.getItem('user');
+
+  if (!token || !userStr) {
+    return <Navigate to="/admin/login" replace />;
+  }
+
+  try {
+    const user = JSON.parse(userStr);
+    if (user.role !== 'admin') {
+      return <Navigate to="/" replace />;
+    }
+  } catch {
+    return <Navigate to="/admin/login" replace />;
+  }
+
+  return <>{children}</>;
+}
+
+// 已登录用户不能再访问登录/注册页
+function GuestGuard({ children }: { children: React.ReactNode }) {
+  const token = localStorage.getItem('token');
+  if (token) {
+    return <Navigate to="/account" replace />;
+  }
+  return <>{children}</>;
+}
+
 function App() {
   useEffect(() => {
     document.documentElement.style.scrollBehavior = 'smooth';
@@ -42,9 +72,18 @@ function App() {
       <CartProvider>
         <Router>
           <Routes>
-            {/* Admin Routes */}
+            {/* Admin Login - 公开 */}
             <Route path="/admin/login" element={<AdminLogin />} />
-            <Route path="/admin" element={<AdminLayout />}>
+
+            {/* Admin Routes - 需要 admin 角色 */}
+            <Route
+              path="/admin"
+              element={
+                <AdminGuard>
+                  <AdminLayout />
+                </AdminGuard>
+              }
+            >
               <Route index element={<Dashboard />} />
               <Route path="users" element={<Users />} />
               <Route path="orders" element={<Orders />} />
@@ -59,12 +98,26 @@ function App() {
                 <main>
                   <Routes>
                     <Route path="/" element={<Home />} />
-                    <Route path="/products" element={<ProductsPage />} />  {/* ✅ 新增 */}
+                    <Route path="/products" element={<ProductsPage />} />
                     <Route path="/product/:id" element={<ProductDetail />} />
                     <Route path="/cart" element={<Cart />} />
                     <Route path="/checkout" element={<Checkout />} />
-                    <Route path="/login" element={<Login />} />
-                    <Route path="/register" element={<Register />} />
+                    <Route
+                      path="/login"
+                      element={
+                        <GuestGuard>
+                          <Login />
+                        </GuestGuard>
+                      }
+                    />
+                    <Route
+                      path="/register"
+                      element={
+                        <GuestGuard>
+                          <Register />
+                        </GuestGuard>
+                      }
+                    />
                     <Route path="/account" element={<Account />} />
                   </Routes>
                 </main>
