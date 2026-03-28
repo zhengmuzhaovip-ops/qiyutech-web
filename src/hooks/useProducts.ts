@@ -62,7 +62,12 @@ export function useProducts(options: UseProductsOptions = {}): UseProductsResult
         const res = await fetch(`${API_BASE_URL}/products?${params}`);
         const data = await res.json();
         if (data.success) {
-          setProducts(data.products);
+         setProducts(data.products.map((p: any) => ({
+          ...p,
+          price: Number(p.price),
+          comparePrice: Number(p.comparePrice),
+          stock: Number(p.stock),
+        })));
           setTotal(data.total);
           setPages(data.pages);
         } else {
