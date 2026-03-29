@@ -1,58 +1,62 @@
-import { createContext, useContext, useState, type ReactNode } from 'react';
+import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
+import type { AuthUser } from '../types';
 
-interface AuthUser {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-}
-
-interface AuthContextType {
-  user: AuthUser | null;
+interface AuthContextValue {
   token: string | null;
-  login: (token: string, user: AuthUser) => void;
-  logout: () => void;
-  isAdmin: boolean;
+  user: AuthUser | null;
   isLoggedIn: boolean;
+  login: (tokenValue: string, userValue: AuthUser) => void;
+  logout: () => void;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const STORAGE_KEY_TOKEN = 'qiyutech_token';
+const STORAGE_KEY_USER = 'qiyutech_user';
+
+const AuthContext = createContext<AuthContextValue | null>(null);
+
+function readStoredUser(): AuthUser | null {
+  const value = localStorage.getItem(STORAGE_KEY_USER);
+  if (!value) return null;
+
+  try {
+    return JSON.parse(value) as AuthUser;
+  } catch {
+    return null;
+  }
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [token, setToken] = useState<string | null>(() => localStorage.getItem('token'));
-  const [user, setUser] = useState<AuthUser | null>(() => {
-    const str = localStorage.getItem('user');
-    try { return str ? JSON.parse(str) : null; } catch { return null; }
-  });
+  const [token, setToken] = useState<string | null>(() => localStorage.getItem(STORAGE_KEY_TOKEN));
+  const [user, setUser] = useState<AuthUser | null>(() => readStoredUser());
 
-  const login = (newToken: string, newUser: AuthUser) => {
-    localStorage.setItem('token', newToken);
-    localStorage.setItem('user', JSON.stringify(newUser));
-    setToken(newToken);
-    setUser(newUser);
-  };
-
-  const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    setToken(null);
-    setUser(null);
-  };
-
-  return (
-    <AuthContext.Provider value={{
-      user, token,
-      login, logout,
-      isAdmin: user?.role === 'admin',
-      isLoggedIn: !!token && !!user,
-    }}>
-      {children}
-    </AuthContext.Provider>
+  const value = useMemo<AuthContextValue>(
+    () => ({
+      token,
+      user,
+      isLoggedIn: Boolean(token && user),
+      login: (tokenValue, userValue) => {
+        localStorage.setItem(STORAGE_KEY_TOKEN, tokenValue);
+        localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(userValue));
+        setToken(tokenValue);
+        setUser(userValue);
+      },
+      logout: () => {
+        localStorage.removeItem(STORAGE_KEY_TOKEN);
+        localStorage.removeItem(STORAGE_KEY_USER);
+        setToken(null);
+        setUser(null);
+      },
+    }),
+    [token, user],
   );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
-  return ctx;
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within AuthProvider');
+  }
+  return context;
 }
