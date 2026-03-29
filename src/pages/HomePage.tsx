@@ -1,5 +1,4 @@
 import { ButtonLink } from '../components/ui/Button'
-import { siteSettings } from '../data/site'
 
 export default function HomePage() {
   return (
