@@ -172,9 +172,12 @@ function ProductCard({
     >
       <img
         src="/images/qiyu-products.png"
+
         alt={name}
         style={{
           width: '100%',
+          height: 200,
+          objectFit: 'cover',
           borderRadius: 10,
           marginBottom: 12,
         }}

@@ -1,51 +1,154 @@
 import { useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { useAuth } from '../context/AuthContext';
 
 export default function LoginPage() {
-  const { isLoggedIn, login } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { login } = useAuth();
+
+  const from = (location.state as { from?: string } | null)?.from || '/account';
+  const fromCheckout = from === '/checkout';
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  if (isLoggedIn) {
-    return <Navigate to="/account" replace />;
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+
+    login('demo-token', {
+      id: 'demo-user',
+      name: 'Demo Buyer',
+      email,
+      role: 'customer',
+    });
+
+    navigate(from, { replace: true });
   }
 
   return (
-    <div className="mx-auto max-w-xl px-6 py-20">
-      <div className="rounded-[2rem] border border-white/10 bg-neutral-950 p-8">
-        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-neutral-500">Login</p>
-        <h1 className="mt-3 text-3xl font-semibold text-white">Account access</h1>
-        <form
-          className="mt-8 space-y-5"
-          onSubmit={(event) => {
-            event.preventDefault();
-            login('demo-token', { id: 'demo-user', name: 'Demo Buyer', email, role: 'customer' });
+    <div
+      style={{
+        minHeight: '100vh',
+        background: '#0a0a0a',
+        color: '#fff',
+        padding: '80px 40px',
+      }}
+    >
+      <div
+        style={{
+          maxWidth: 460,
+          margin: '0 auto',
+          background: '#111',
+          border: '1px solid #222',
+          borderRadius: 24,
+          padding: 28,
+        }}
+      >
+        <p
+          style={{
+            color: '#8a8a8a',
+            letterSpacing: 2,
+            fontSize: 12,
+            marginBottom: 14,
           }}
         >
-          <label className="block text-sm text-neutral-300">
+          LOGIN
+        </p>
+
+        {fromCheckout ? (
+          <div
+            style={{
+              marginBottom: 18,
+              borderRadius: 16,
+              border: '1px solid #1f1f1f',
+              background: '#0a0a0a',
+              padding: 16,
+              color: '#b8b8b8',
+              fontSize: 14,
+              lineHeight: 1.7,
+            }}
+          >
+            Checkout requires login first. After sign-in, you will be sent back to the secure
+            checkout page automatically.
+          </div>
+        ) : null}
+
+        <h1
+          style={{
+            marginTop: 0,
+            marginBottom: 24,
+            fontSize: 30,
+          }}
+        >
+          Account access
+        </h1>
+
+        <form onSubmit={handleSubmit}>
+          <label
+            style={{
+              display: 'block',
+              marginBottom: 8,
+              color: '#d4d4d4',
+            }}
+          >
             Email
-            <input
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              required
-              className="mt-2 w-full rounded-2xl border border-white/10 bg-black px-4 py-3 text-white outline-none"
-            />
           </label>
-          <label className="block text-sm text-neutral-300">
+          <input
+            type="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            style={{
+              width: '100%',
+              height: 44,
+              borderRadius: 14,
+              border: '1px solid #222',
+              background: '#0a0a0a',
+              color: '#fff',
+              padding: '0 14px',
+              marginBottom: 20,
+              outline: 'none',
+            }}
+          />
+
+          <label
+            style={{
+              display: 'block',
+              marginBottom: 8,
+              color: '#d4d4d4',
+            }}
+          >
             Password
-            <input
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              required
-              className="mt-2 w-full rounded-2xl border border-white/10 bg-black px-4 py-3 text-white outline-none"
-            />
           </label>
+          <input
+            type="password"
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            style={{
+              width: '100%',
+              height: 44,
+              borderRadius: 14,
+              border: '1px solid #222',
+              background: '#0a0a0a',
+              color: '#fff',
+              padding: '0 14px',
+              marginBottom: 22,
+              outline: 'none',
+            }}
+          />
+
           <Button type="submit">Login</Button>
         </form>
+
+        <p style={{ marginTop: 18, color: '#8a8a8a', fontSize: 14 }}>
+          No account yet?{' '}
+          <Link to="/register" style={{ color: '#fff', textDecoration: 'underline' }}>
+            Create one
+          </Link>
+        </p>
       </div>
     </div>
   );
