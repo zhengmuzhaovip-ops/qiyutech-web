@@ -20,12 +20,34 @@ interface CartContextValue {
 const STORAGE_KEY = 'qiyutech_cart';
 const CartContext = createContext<CartContextValue | null>(null);
 
+function normalizeStoredItem(item: CartItem): CartItem {
+  if (item.slug === 'qiyu-ultra-6000' || item.id.startsWith('qiyu-ultra-6000-')) {
+    return {
+      ...item,
+      name: 'GEEK BAR PULSE X — Pear Of Thieves',
+      image: '/images/catalog-geek-bar-pulse-x-pear-of-thieves.png',
+      selectedFlavor: item.selectedFlavor || 'Pear Of Thieves',
+    };
+  }
+
+  if (item.slug === 'qiyu-mini-4000' || item.id.startsWith('qiyu-mini-4000-')) {
+    return {
+      ...item,
+      name: 'GEEK BAR PULSE X — Raspberry Peach Lime',
+      image: '/images/catalog-geek-bar-pulse-x-raspberry-peach-lime.png',
+      selectedFlavor: item.selectedFlavor || 'Raspberry Peach Lime',
+    };
+  }
+
+  return item;
+}
+
 function readStoredCart(): CartItem[] {
   const value = localStorage.getItem(STORAGE_KEY);
   if (!value) return [];
 
   try {
-    return JSON.parse(value) as CartItem[];
+    return (JSON.parse(value) as CartItem[]).map(normalizeStoredItem);
   } catch {
     return [];
   }

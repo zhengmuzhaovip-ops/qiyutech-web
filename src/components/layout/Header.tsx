@@ -4,9 +4,9 @@ import { siteSettings } from '../../data/site';
 
 const navItems = [
   { label: 'Home', to: '/' },
-  { label: 'Products', to: '/products' },
-  { label: 'Cart', to: '/cart' },
-  { label: 'Account', to: '/account' },
+  { label: 'Catalog', to: '/products' },
+  { label: 'Order Review', to: '/cart' },
+  { label: 'Trade Account', to: '/account' },
 ];
 
 export default function Header() {
@@ -38,9 +38,29 @@ export default function Header() {
             {siteSettings.phone}
           </a>
           <Link to="/cart" className="rounded-full border border-white/10 px-4 py-2 text-white hover:border-white/30">
-            Cart ({totalItems})
+            Order Review ({totalItems})
           </Link>
         </div>
+      </div>
+
+      <div className="border-t border-white/5 md:hidden overflow-hidden">
+        <nav className="mx-auto flex max-w-full gap-2 overflow-x-auto px-3 py-3 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+          {navItems.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              className={({ isActive }) =>
+                `whitespace-nowrap rounded-full border px-3 py-2 text-sm transition ${
+                  isActive
+                    ? 'border-white/25 bg-white/10 text-white'
+                    : 'border-white/10 text-neutral-400 hover:border-white/20 hover:text-white'
+                }`
+              }
+            >
+              {item.label}
+            </NavLink>
+          ))}
+        </nav>
       </div>
     </header>
   );

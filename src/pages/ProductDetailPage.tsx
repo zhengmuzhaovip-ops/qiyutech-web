@@ -1,77 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { Button } from '../components/ui/Button'
 import { useCart } from '../context/CartContext'
-
-type ProductDetail = {
-  id: string
-  slug: string
-  name: string
-  price: number
-  image: string
-  gallery: string[]
-  description: string
-  puffs: string
-  specs: Array<{ label: string; value: string }>
-  highlights: string[]
-  flavors: string[]
-}
-
-const ultraProduct: ProductDetail = {
-  id: 'qiyu-ultra-6000',
-  slug: 'qiyu-ultra-6000',
-  name: 'QiYu Ultra 6000',
-  price: 12.99,
-  image: '/images/qiyu-hero.png',
-  gallery: [
-    '/images/qiyu-hero.png',
-    '/images/qiyu-products.png',
-    '/images/qiyu-hero.png',
-  ],
-  description:
-    'QiYu Ultra 6000 is designed for a cleaner product presentation and a more premium buying experience. It combines stronger visual identity with practical everyday performance for a modern disposable vape line.',
-  puffs: '6000 puffs',
-  highlights: [
-    'Smooth draw and premium finish',
-    'Built for focused wholesale presentation',
-    'Cleaner buying path for faster conversion',
-  ],
-  flavors: ['Blue Razz', 'Mint Ice', 'Strawberry', 'Watermelon'],
-  specs: [
-    { label: 'Puffs', value: '6000' },
-    { label: 'Battery', value: 'Rechargeable' },
-    { label: 'Product Type', value: 'Disposable Vape' },
-    { label: 'Market', value: 'US Retail & Wholesale' },
-  ],
-}
-
-const miniProduct: ProductDetail = {
-  id: 'qiyu-mini-4000',
-  slug: 'qiyu-mini-4000',
-  name: 'QiYu Mini 4000',
-  price: 12.99,
-  image: '/images/qiyu-products.png',
-  gallery: [
-    '/images/qiyu-products.png',
-    '/images/qiyu-hero.png',
-    '/images/qiyu-products.png',
-  ],
-  description:
-    'QiYu Mini 4000 offers a more compact option while keeping a clean premium presentation. It suits a smaller product catalog with a simpler choice structure for customers.',
-  puffs: '4000 puffs',
-  highlights: [
-    'Compact and easier to browse',
-    'Suitable for a smaller catalog',
-    'Consistent storefront presentation',
-  ],
-  flavors: ['Peach Ice', 'Grape', 'Cola', 'Mango'],
-  specs: [
-    { label: 'Puffs', value: '4000' },
-    { label: 'Battery', value: 'Integrated' },
-    { label: 'Product Type', value: 'Disposable Vape' },
-    { label: 'Market', value: 'US Retail & Wholesale' },
-  ],
-}
+import { siteSettings } from '../data/site'
+import { getWholesaleProductBySlug, wholesaleProducts } from '../data/wholesaleProducts'
 
 const qtyButtonStyle: React.CSSProperties = {
   width: 46,
@@ -89,20 +21,22 @@ function InfoCard({
   description,
 }: {
   title: string
-  value: string
+  value?: string
   description: string
 }) {
   return (
     <div
       style={{
-        background: '#111',
-        border: '1px solid #222',
-        borderRadius: 20,
-        padding: 22,
-        minHeight: 260,
+        background:
+          'linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02)), #101010',
+        border: '1px solid rgba(255,255,255,0.08)',
+        borderRadius: 24,
+        padding: 24,
+        minHeight: 250,
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'flex-start',
+        boxShadow: '0 16px 50px rgba(0,0,0,0.22)',
       }}
     >
       <p
@@ -118,25 +52,26 @@ function InfoCard({
         {title}
       </p>
 
-      <h3 style={{ marginTop: 0, marginBottom: 12, fontSize: 24 }}>{value}</h3>
+      {value ? <h3 style={{ marginTop: 0, marginBottom: 14, fontSize: 24 }}>{value}</h3> : null}
 
-      <p style={{ margin: 0, color: '#a5a5a5', lineHeight: 1.7 }}>{description}</p>
+      <p style={{ margin: 0, color: '#a5a5a5', lineHeight: 1.8 }}>{description}</p>
     </div>
   )
 }
 
-function MiniBadge({ text }: { text: string }) {
+function MiniBadge({ text, compact = false }: { text: string; compact?: boolean }) {
   return (
     <span
       style={{
         display: 'inline-flex',
         alignItems: 'center',
-        padding: '8px 12px',
+        padding: compact ? '7px 10px' : '8px 12px',
         borderRadius: 999,
-        border: '1px solid #262626',
-        background: '#111',
+        border: '1px solid rgba(255,255,255,0.08)',
+        background: 'rgba(255,255,255,0.03)',
         color: '#d9d9d9',
-        fontSize: 13,
+        fontSize: compact ? 12 : 13,
+        whiteSpace: 'nowrap',
       }}
     >
       {text}
@@ -145,56 +80,271 @@ function MiniBadge({ text }: { text: string }) {
 }
 
 export default function ProductDetailPage() {
-  const { id } = useParams()
+  const { slug } = useParams()
   const { addToCart } = useCart()
+  const [viewportWidth, setViewportWidth] = useState(() =>
+    typeof window === 'undefined' ? 1440 : window.innerWidth,
+  )
 
   const product = useMemo(() => {
-    const slug = (id || '').toLowerCase()
-    if (slug.includes('mini')) return miniProduct
-    if (slug.includes('ultra')) return ultraProduct
-    return ultraProduct
-  }, [id])
+    const currentSlug = (slug || '').toLowerCase()
+    if (currentSlug.includes('mini')) {
+      return wholesaleProducts[1]
+    }
+
+    if (currentSlug.includes('ultra')) {
+      return wholesaleProducts[0]
+    }
+
+    return getWholesaleProductBySlug(currentSlug) ?? wholesaleProducts[0]
+  }, [slug])
 
   const [quantity, setQuantity] = useState(1)
   const [activeImage, setActiveImage] = useState<string | null>(null)
+  const [contactModal, setContactModal] = useState<'pricing' | 'manager' | null>(null)
+
+  useEffect(() => {
+    setActiveImage(null)
+    setQuantity(1)
+  }, [slug])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return
+    }
+
+    const handleResize = () => {
+      setViewportWidth(window.innerWidth)
+    }
+
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
   const currentImage = activeImage || product.image
+  const isMobile = viewportWidth <= 768
+  const phoneHref = `tel:${siteSettings.phone.replace(/[^\d+]/g, '')}`
+  const emailHref = `mailto:${siteSettings.email}`
+  const modalCopy =
+    contactModal === 'pricing'
+      ? {
+          eyebrow: 'Wholesale Pricing',
+          title: 'Request Wholesale Pricing',
+          description:
+            'For volume pricing, MOQ details, and account-based rates, contact our wholesale team directly.',
+        }
+      : {
+          eyebrow: 'Trade Support',
+          title: 'Contact Account Manager',
+          description:
+            'For account setup, reorder planning, and store delivery coordination, contact our trade support team.',
+        }
 
   return (
     <div
       style={{
         minHeight: '100vh',
-        background: '#0a0a0a',
+        background:
+          'radial-gradient(circle at top, rgba(255,255,255,0.06), transparent 20%), linear-gradient(180deg, #0a0a0a 0%, #070707 100%)',
         color: '#fff',
-        padding: '72px 40px 96px',
+        padding: isMobile ? '20px 16px 40px' : '72px 40px 96px',
       }}
     >
+      {contactModal ? (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 24,
+            background: 'rgba(0,0,0,0.72)',
+            backdropFilter: 'blur(10px)',
+          }}
+        >
+          <div
+            style={{
+              width: '100%',
+              maxWidth: 520,
+              borderRadius: isMobile ? 24 : 28,
+              border: '1px solid rgba(255,255,255,0.08)',
+              background:
+                'linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.015)), #101010',
+              boxShadow: '0 28px 100px rgba(0,0,0,0.42)',
+              overflow: 'hidden',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                justifyContent: 'space-between',
+                gap: 16,
+                padding: isMobile ? '20px 20px 0' : '24px 24px 0',
+              }}
+            >
+              <div>
+                <p
+                  style={{
+                    margin: 0,
+                    marginBottom: 10,
+                    color: '#8f8f8f',
+                    fontSize: 12,
+                    letterSpacing: 1.8,
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  {modalCopy.eyebrow}
+                </p>
+                <h2 style={{ margin: 0, fontSize: isMobile ? 26 : 32, lineHeight: 1.08 }}>
+                  {modalCopy.title}
+                </h2>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setContactModal(null)}
+                aria-label="Close contact dialog"
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 999,
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  background: '#0f0f0f',
+                  color: '#fff',
+                  cursor: 'pointer',
+                  fontSize: 18,
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            <div style={{ padding: isMobile ? 20 : 24 }}>
+              <p
+                style={{
+                  marginTop: 0,
+                  marginBottom: 20,
+                  color: '#a8a8a8',
+                  fontSize: isMobile ? 14 : 15,
+                  lineHeight: 1.8,
+                }}
+              >
+                {modalCopy.description}
+              </p>
+
+              <div
+                style={{
+                  display: 'grid',
+                  gap: 14,
+                }}
+              >
+                <a
+                  href={phoneHref}
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 6,
+                    padding: '16px 18px',
+                    borderRadius: 18,
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    background: 'rgba(255,255,255,0.02)',
+                    color: '#fff',
+                    textDecoration: 'none',
+                  }}
+                >
+                  <span
+                    style={{
+                      color: '#8f8f8f',
+                      fontSize: 12,
+                      letterSpacing: 1.5,
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    Call Trade Support
+                  </span>
+                  <span style={{ fontSize: isMobile ? 20 : 22, fontWeight: 700 }}>
+                    {siteSettings.phone}
+                  </span>
+                </a>
+
+                <a
+                  href={emailHref}
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 6,
+                    padding: '16px 18px',
+                    borderRadius: 18,
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    background: 'rgba(255,255,255,0.02)',
+                    color: '#fff',
+                    textDecoration: 'none',
+                  }}
+                >
+                  <span
+                    style={{
+                      color: '#8f8f8f',
+                      fontSize: 12,
+                      letterSpacing: 1.5,
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    Email Wholesale Team
+                  </span>
+                  <span style={{ fontSize: isMobile ? 16 : 18, fontWeight: 600 }}>
+                    {siteSettings.email}
+                  </span>
+                </a>
+              </div>
+
+              <div
+                style={{
+                  marginTop: 20,
+                  paddingTop: 18,
+                  borderTop: '1px solid rgba(255,255,255,0.08)',
+                  color: '#929292',
+                  fontSize: 13,
+                  lineHeight: 1.7,
+                }}
+              >
+                Business support: Monday to Friday, 9:00 AM to 6:00 PM (China Standard Time)
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <div style={{ maxWidth: 1320, margin: '0 auto' }}>
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: '1.05fr 0.95fr',
-            gap: 40,
+            gridTemplateColumns: isMobile ? '1fr' : '1.02fr 0.98fr',
+            gap: isMobile ? 18 : 34,
             alignItems: 'start',
           }}
         >
           <div>
             <div
               style={{
+                position: 'relative',
+                overflow: 'hidden',
                 background:
-                  'radial-gradient(circle at top right, rgba(255,255,255,0.09), transparent 35%), #111',
-                border: '1px solid #222',
-                borderRadius: 28,
-                padding: 22,
-                marginBottom: 16,
-                boxShadow: '0 24px 80px rgba(0,0,0,0.35)',
+                  'radial-gradient(circle at top right, rgba(255,255,255,0.08), transparent 32%), linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02)), #101010',
+                border: '1px solid rgba(255,255,255,0.08)',
+                borderRadius: isMobile ? 26 : 34,
+                padding: isMobile ? 14 : 22,
+                marginBottom: isMobile ? 14 : 18,
+                boxShadow: '0 28px 90px rgba(0,0,0,0.4)',
               }}
             >
               <div
                 style={{
                   position: 'relative',
                   overflow: 'hidden',
-                  borderRadius: 18,
+                  borderRadius: isMobile ? 18 : 24,
                   background: '#0d0d0d',
                 }}
               >
@@ -203,7 +353,7 @@ export default function ProductDetailPage() {
                   alt={product.name}
                   style={{
                     width: '100%',
-                    height: 680,
+                    height: isMobile ? 430 : 720,
                     objectFit: 'cover',
                     display: 'block',
                   }}
@@ -212,46 +362,48 @@ export default function ProductDetailPage() {
                 <div
                   style={{
                     position: 'absolute',
-                    left: 20,
-                    right: 20,
-                    bottom: 20,
+                    left: isMobile ? 14 : 24,
+                    right: isMobile ? 14 : 24,
+                    bottom: isMobile ? 14 : 24,
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'flex-end',
-                    gap: 16,
+                    gap: isMobile ? 10 : 18,
                     flexWrap: 'wrap',
                   }}
                 >
-                  <div
-                    style={{
-                      padding: '12px 14px',
-                      borderRadius: 16,
-                      background: 'rgba(0,0,0,0.48)',
-                      backdropFilter: 'blur(8px)',
-                      border: '1px solid rgba(255,255,255,0.08)',
-                    }}
-                  >
-                    <p
+                  {!isMobile ? (
+                    <div
                       style={{
-                        margin: 0,
-                        marginBottom: 6,
-                        color: '#a7a7a7',
-                        fontSize: 11,
-                        letterSpacing: 1.5,
-                        textTransform: 'uppercase',
+                        padding: '14px 16px',
+                        borderRadius: 18,
+                        background: 'rgba(0,0,0,0.5)',
+                        backdropFilter: 'blur(10px)',
+                        border: '1px solid rgba(255,255,255,0.08)',
                       }}
                     >
-                      Featured Visual
-                    </p>
-                    <div style={{ fontSize: 18, fontWeight: 700 }}>{product.name}</div>
-                  </div>
+                      <p
+                        style={{
+                          margin: 0,
+                          marginBottom: 8,
+                          color: '#a7a7a7',
+                          fontSize: 11,
+                          letterSpacing: 1.5,
+                          textTransform: 'uppercase',
+                        }}
+                      >
+                        Product Presentation
+                      </p>
+                      <div style={{ fontSize: 20, fontWeight: 700 }}>{product.name}</div>
+                    </div>
+                  ) : null}
 
                   <div
                     style={{
-                      padding: '12px 14px',
-                      borderRadius: 16,
-                      background: 'rgba(0,0,0,0.48)',
-                      backdropFilter: 'blur(8px)',
+                      padding: isMobile ? '12px 14px' : '14px 16px',
+                      borderRadius: isMobile ? 16 : 18,
+                      background: 'rgba(0,0,0,0.5)',
+                      backdropFilter: 'blur(10px)',
                       border: '1px solid rgba(255,255,255,0.08)',
                       textAlign: 'right',
                     }}
@@ -259,7 +411,7 @@ export default function ProductDetailPage() {
                     <p
                       style={{
                         margin: 0,
-                        marginBottom: 6,
+                        marginBottom: 8,
                         color: '#a7a7a7',
                         fontSize: 11,
                         letterSpacing: 1.5,
@@ -268,7 +420,7 @@ export default function ProductDetailPage() {
                     >
                       Product Type
                     </p>
-                    <div style={{ fontSize: 16, fontWeight: 600 }}>Disposable Vape</div>
+                    <div style={{ fontSize: isMobile ? 14 : 16, fontWeight: 600 }}>Disposable Vape</div>
                   </div>
                 </div>
               </div>
@@ -278,7 +430,7 @@ export default function ProductDetailPage() {
               style={{
                 display: 'grid',
                 gridTemplateColumns: 'repeat(3, 1fr)',
-                gap: 12,
+                gap: isMobile ? 8 : 12,
               }}
             >
               {product.gallery.map((image, index) => (
@@ -288,10 +440,12 @@ export default function ProductDetailPage() {
                   onClick={() => setActiveImage(image)}
                   style={{
                     border:
-                      currentImage === image ? '1px solid #fff' : '1px solid #222',
+                      currentImage === image
+                        ? '1px solid rgba(255,255,255,0.6)'
+                        : '1px solid rgba(255,255,255,0.08)',
                     background: '#111',
-                    borderRadius: 16,
-                    padding: 8,
+                    borderRadius: isMobile ? 14 : 18,
+                    padding: isMobile ? 6 : 8,
                     cursor: 'pointer',
                     transition: '0.25s',
                   }}
@@ -301,9 +455,9 @@ export default function ProductDetailPage() {
                     alt={`${product.name} preview ${index + 1}`}
                     style={{
                       width: '100%',
-                      height: 120,
+                      height: isMobile ? 86 : 128,
                       objectFit: 'cover',
-                      borderRadius: 10,
+                      borderRadius: isMobile ? 10 : 12,
                       display: 'block',
                     }}
                   />
@@ -311,92 +465,96 @@ export default function ProductDetailPage() {
               ))}
             </div>
 
-            <div
-              style={{
-                marginTop: 28,
-                display: 'grid',
-                gridTemplateColumns: '1.2fr 0.8fr',
-                gap: 18,
-              }}
-            >
+            {!isMobile ? (
               <div
                 style={{
-                  padding: 26,
-                  background: '#111',
-                  border: '1px solid #222',
-                  borderRadius: 22,
+                  marginTop: 30,
+                  display: 'grid',
+                  gridTemplateColumns: '1.2fr 0.8fr',
+                  gap: 18,
                 }}
               >
-                <h3 style={{ marginTop: 0, marginBottom: 12, fontSize: 24 }}>
-                  Product Story
-                </h3>
-
-                <p
+                <div
                   style={{
-                    color: '#a5a5a5',
-                    lineHeight: 1.8,
-                    marginTop: 0,
-                    marginBottom: 0,
+                    padding: 28,
+                    background:
+                      'linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02)), #101010',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    borderRadius: 24,
                   }}
                 >
-                  This section is ideal for future marketing copy: flavor experience,
-                  material finish, battery convenience, or positioning for the US
-                  market. It helps this page feel less like a template and more like
-                  a commercial landing page.
-                </p>
-              </div>
+                  <h3 style={{ marginTop: 0, marginBottom: 14, fontSize: 26 }}>
+                    Wholesale Overview
+                  </h3>
 
-              <div
-                style={{
-                  padding: 26,
-                  background: '#111',
-                  border: '1px solid #222',
-                  borderRadius: 22,
-                }}
-              >
-                <p
-                  style={{
-                    marginTop: 0,
-                    marginBottom: 10,
-                    color: '#8d8d8d',
-                    fontSize: 12,
-                    letterSpacing: 1.5,
-                    textTransform: 'uppercase',
-                  }}
-                >
-                  Quick Notes
-                </p>
+                  <p
+                    style={{
+                      color: '#a5a5a5',
+                      lineHeight: 1.9,
+                      marginTop: 0,
+                      marginBottom: 0,
+                      fontSize: 15,
+                    }}
+                  >
+                    Built to support premium shelf presentation, cleaner restocking decisions, and
+                    dependable replenishment planning for U.S. retail store accounts.
+                  </p>
+                </div>
 
                 <div
                   style={{
-                    display: 'grid',
-                    gap: 12,
-                    color: '#d6d6d6',
-                    fontSize: 14,
+                    padding: 28,
+                    background:
+                      'linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02)), #101010',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    borderRadius: 24,
                   }}
                 >
-                  <div>• Premium storefront visual</div>
-                  <div>• Built for US-focused product pages</div>
-                  <div>• Ready for future single-product photography</div>
+                  <p
+                    style={{
+                      marginTop: 0,
+                      marginBottom: 12,
+                      color: '#8d8d8d',
+                      fontSize: 12,
+                      letterSpacing: 1.5,
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    Trade Notes
+                  </p>
+
+                  <div
+                    style={{
+                      display: 'grid',
+                      gap: 12,
+                      color: '#d6d6d6',
+                      fontSize: 14,
+                      lineHeight: 1.8,
+                    }}
+                  >
+                    <div>Premium wholesale presentation</div>
+                    <div>Built for U.S. retail store review</div>
+                    <div>Prepared for repeat replenishment</div>
+                  </div>
                 </div>
               </div>
-            </div>
+            ) : null}
           </div>
 
           <div
             style={{
-              position: 'sticky',
-              top: 92,
+              position: isMobile ? 'static' : 'sticky',
+              top: isMobile ? 'auto' : 92,
             }}
           >
             <div
               style={{
                 background:
-                  'linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01)), #111',
-                border: '1px solid #222',
-                borderRadius: 28,
-                padding: 28,
-                boxShadow: '0 20px 60px rgba(0,0,0,0.35)',
+                  'linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.015)), #101010',
+                border: '1px solid rgba(255,255,255,0.08)',
+                borderRadius: isMobile ? 26 : 34,
+                padding: isMobile ? 20 : 30,
+                boxShadow: '0 24px 80px rgba(0,0,0,0.36)',
               }}
             >
               <p
@@ -404,30 +562,59 @@ export default function ProductDetailPage() {
                   color: '#8d8d8d',
                   letterSpacing: 2,
                   fontSize: 12,
-                  marginBottom: 14,
+                  marginBottom: isMobile ? 12 : 16,
+                  textTransform: 'uppercase',
                 }}
               >
-                {product.puffs.toUpperCase()}
+                {product.flavor.toUpperCase()}
               </p>
 
-              <h1
-                style={{
-                  fontSize: 46,
-                  lineHeight: 1.08,
-                  margin: 0,
-                  marginBottom: 14,
-                }}
-              >
-                {product.name}
-              </h1>
+              {isMobile ? (
+                <div style={{ marginBottom: 14 }}>
+                  <h1
+                    style={{
+                      fontSize: 34,
+                      lineHeight: 1.02,
+                      letterSpacing: -0.7,
+                      margin: 0,
+                    }}
+                  >
+                    {product.shortName}
+                  </h1>
+                  <p
+                    style={{
+                      margin: 0,
+                      marginTop: 8,
+                      color: '#f3f3f3',
+                      fontSize: 22,
+                      lineHeight: 1.08,
+                      fontWeight: 500,
+                    }}
+                  >
+                    {product.flavor}
+                  </p>
+                </div>
+              ) : (
+                <h1
+                  style={{
+                    fontSize: 52,
+                    lineHeight: 1.02,
+                    letterSpacing: -1.2,
+                    margin: 0,
+                    marginBottom: 16,
+                  }}
+                >
+                  {product.name}
+                </h1>
+              )}
 
               <p
                 style={{
                   color: '#a5a5a5',
-                  fontSize: 16,
-                  lineHeight: 1.8,
+                  fontSize: isMobile ? 14 : 16,
+                  lineHeight: isMobile ? 1.72 : 1.9,
                   marginTop: 0,
-                  marginBottom: 22,
+                  marginBottom: isMobile ? 18 : 24,
                 }}
               >
                 {product.description}
@@ -436,24 +623,29 @@ export default function ProductDetailPage() {
               <div
                 style={{
                   display: 'flex',
-                  gap: 10,
-                  flexWrap: 'wrap',
-                  marginBottom: 24,
+                  gap: 8,
+                  flexWrap: isMobile ? 'nowrap' : 'wrap',
+                  marginBottom: isMobile ? 20 : 28,
+                  overflowX: isMobile ? 'auto' : 'visible',
+                  paddingBottom: isMobile ? 2 : 0,
+                  scrollbarWidth: 'none',
+                  msOverflowStyle: 'none',
                 }}
               >
-                <MiniBadge text="Premium finish" />
-                <MiniBadge text="US market ready" />
-                <MiniBadge text="Fast ordering" />
+                <MiniBadge text="Wholesale supply" compact={isMobile} />
+                <MiniBadge text="U.S. retail ready" compact={isMobile} />
               </div>
 
               <div
                 style={{
-                  display: 'flex',
-                  alignItems: 'flex-end',
+                  display: isMobile ? 'grid' : 'flex',
+                  gridTemplateColumns: isMobile ? 'max-content minmax(0, 1fr)' : undefined,
+                  alignItems: isMobile ? 'end' : 'flex-end',
                   justifyContent: 'space-between',
-                  gap: 16,
-                  marginBottom: 24,
-                  flexWrap: 'wrap',
+                  gap: isMobile ? 10 : 16,
+                  marginBottom: isMobile ? 18 : 24,
+                  flexWrap: isMobile ? 'nowrap' : 'wrap',
+                  flexDirection: 'row',
                 }}
               >
                 <div>
@@ -462,14 +654,14 @@ export default function ProductDetailPage() {
                       margin: 0,
                       color: '#7f7f7f',
                       fontSize: 13,
-                      marginBottom: 6,
+                      marginBottom: 8,
                     }}
                   >
-                    Unit Price
+                    Wholesale Price
                   </p>
                   <div
                     style={{
-                      fontSize: 38,
+                      fontSize: isMobile ? 34 : 42,
                       fontWeight: 800,
                       lineHeight: 1,
                     }}
@@ -480,137 +672,206 @@ export default function ProductDetailPage() {
 
                 <div
                   style={{
-                    padding: '10px 14px',
-                    borderRadius: 14,
-                    background: '#0d0d0d',
-                    border: '1px solid #1d1d1d',
+                    padding: isMobile ? '10px 12px' : '12px 16px',
+                    borderRadius: isMobile ? 16 : 18,
+                    background: '#0c0c0c',
+                    border: '1px solid rgba(255,255,255,0.08)',
                     color: '#d0d0d0',
-                    fontSize: 13,
+                    fontSize: isMobile ? 12 : 13,
+                    width: 'auto',
+                    maxWidth: isMobile ? 200 : 'none',
+                    lineHeight: isMobile ? 1.45 : 1.55,
+                    justifySelf: isMobile ? 'end' : 'auto',
                   }}
                 >
-                  MOQ / wholesale pricing can be configured later
+                  Volume pricing and MOQ are available for trade accounts.
                 </div>
               </div>
 
               <div
                 style={{
-                  display: 'flex',
-                  gap: 14,
-                  alignItems: 'center',
-                  marginBottom: 18,
-                  flexWrap: 'wrap',
+                  padding: isMobile ? 16 : 22,
+                  background: 'rgba(255,255,255,0.025)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: 22,
+                  marginBottom: isMobile ? 16 : 20,
                 }}
               >
                 <div
                   style={{
                     display: 'flex',
-                    alignItems: 'center',
-                    border: '1px solid #222',
-                    borderRadius: 14,
-                    overflow: 'hidden',
-                    background: '#111',
+                    gap: isMobile ? 10 : 12,
+                    alignItems: 'flex-start',
+                    marginBottom: 16,
+                    flexWrap: 'nowrap',
+                    justifyContent: 'space-between',
                   }}
                 >
-                  <button
-                    type="button"
-                    onClick={() => setQuantity((prev) => Math.max(1, prev - 1))}
-                    style={qtyButtonStyle}
+                  <div
+                    style={{
+                      display: 'grid',
+                      gap: 8,
+                      flex: '0 0 auto',
+                    }}
                   >
-                    -
-                  </button>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        borderRadius: 16,
+                        overflow: 'hidden',
+                        background: '#0f0f0f',
+                        width: 'fit-content',
+                      }}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setQuantity((prev) => Math.max(1, prev - 1))}
+                        style={{
+                          ...qtyButtonStyle,
+                          width: isMobile ? 38 : qtyButtonStyle.width,
+                          height: isMobile ? 42 : qtyButtonStyle.height,
+                        }}
+                      >
+                        -
+                      </button>
+
+                      <div
+                        style={{
+                          minWidth: isMobile ? 44 : 58,
+                          textAlign: 'center',
+                          fontWeight: 600,
+                        }}
+                      >
+                        {quantity}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setQuantity((prev) => prev + 1)}
+                        style={{
+                          ...qtyButtonStyle,
+                          width: isMobile ? 38 : qtyButtonStyle.width,
+                          height: isMobile ? 42 : qtyButtonStyle.height,
+                        }}
+                      >
+                        +
+                      </button>
+                    </div>
+
+                    <div style={{ color: '#8d8d8d', fontSize: 13 }}>Select order quantity</div>
+                  </div>
 
                   <div
                     style={{
-                      minWidth: 56,
-                      textAlign: 'center',
-                      fontWeight: 600,
+                      width: isMobile ? 176 : 196,
+                      minWidth: isMobile ? 176 : 196,
+                      padding: isMobile ? '0 14px' : '0 16px',
+                      borderRadius: 16,
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      background: '#0f0f0f',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 10,
+                      height: isMobile ? 42 : 46,
+                      flex: '0 0 auto',
                     }}
                   >
-                    {quantity}
+                    <p
+                      style={{
+                        margin: 0,
+                        color: '#8d8d8d',
+                        fontSize: isMobile ? 10 : 11,
+                        letterSpacing: isMobile ? 1 : 1.4,
+                        textTransform: 'uppercase',
+                        whiteSpace: 'nowrap',
+                        flexShrink: 1,
+                      }}
+                    >
+                      In stock
+                    </p>
+                    <div
+                      style={{
+                        fontSize: isMobile ? 18 : 24,
+                        fontWeight: 700,
+                        lineHeight: 1,
+                        whiteSpace: 'nowrap',
+                        flexShrink: 0,
+                        minWidth: isMobile ? '6ch' : '7ch',
+                        textAlign: 'right',
+                      }}
+                    >
+                      {product.stock}
+                    </div>
                   </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setQuantity((prev) => prev + 1)}
-                    style={qtyButtonStyle}
-                  >
-                    +
-                  </button>
                 </div>
 
-                <Button
-                  onClick={() =>
-                    addToCart({
-                      product: {
-                        id: product.id,
-                        slug: product.slug,
-                        name: product.name,
-                        tagline: product.puffs,
-                        price: product.price,
-                        shortDescription: product.description,
-                        description: product.description,
-                        image: product.image,
-                        gallery: product.gallery,
-                        flavors: product.flavors,
-                        features: product.highlights,
-                        specs: product.specs,
-                      },
-                      quantity,
-                    })
-                  }
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr',
+                    gap: 10,
+                  }}
                 >
-                  Add to Cart
-                </Button>
+                  <Button
+                    onClick={() =>
+                      addToCart({
+                        product: {
+                          id: product.id,
+                          slug: product.slug,
+                          name: product.name,
+                          tagline: product.flavor,
+                          price: product.price,
+                          shortDescription: product.description,
+                          description: product.description,
+                          image: product.image,
+                          gallery: product.gallery,
+                          flavors: [product.flavor],
+                          features: product.highlights,
+                          specs: product.specs,
+                        },
+                        quantity,
+                      })
+                    }
+                  >
+                    Add to Order
+                  </Button>
+
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
+                      gap: 10,
+                    }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setContactModal('pricing')}
+                      style={secondaryActionStyle}
+                    >
+                      Request Pricing
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setContactModal('manager')}
+                      style={secondaryActionStyle}
+                    >
+                      Contact Account Manager
+                    </button>
+                  </div>
+                </div>
               </div>
 
               <div
                 style={{
-                  display: 'flex',
-                  gap: 12,
-                  flexWrap: 'wrap',
-                  marginBottom: 24,
-                }}
-              >
-                <button
-                  type="button"
-                  style={{
-                    height: 46,
-                    padding: '0 18px',
-                    borderRadius: 999,
-                    border: '1px solid #2a2a2a',
-                    background: 'transparent',
-                    color: '#fff',
-                    cursor: 'pointer',
-                    fontSize: 14,
-                  }}
-                >
-                  Request Wholesale
-                </button>
-
-                <button
-                  type="button"
-                  style={{
-                    height: 46,
-                    padding: '0 18px',
-                    borderRadius: 999,
-                    border: '1px solid #2a2a2a',
-                    background: 'transparent',
-                    color: '#fff',
-                    cursor: 'pointer',
-                    fontSize: 14,
-                  }}
-                >
-                  Contact Sales
-                </button>
-              </div>
-
-              <div
-                style={{
-                  padding: 18,
+                  padding: isMobile ? 16 : 20,
                   background: '#0d0d0d',
-                  border: '1px solid #1d1d1d',
-                  borderRadius: 18,
-                  marginBottom: 24,
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: 20,
+                  marginBottom: isMobile ? 16 : 24,
                 }}
               >
                 <div
@@ -619,81 +880,23 @@ export default function ProductDetailPage() {
                     gap: 10,
                   }}
                 >
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      gap: 12,
-                      color: '#d6d6d6',
-                      fontSize: 14,
-                    }}
-                  >
-                    <span style={{ color: '#8d8d8d' }}>Checkout Logic</span>
-                    <span>Login required at checkout</span>
-                  </div>
-
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      gap: 12,
-                      color: '#d6d6d6',
-                      fontSize: 14,
-                    }}
-                  >
-                    <span style={{ color: '#8d8d8d' }}>Market</span>
-                    <span>US retail & wholesale</span>
-                  </div>
-
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      gap: 12,
-                      color: '#d6d6d6',
-                      fontSize: 14,
-                    }}
-                  >
-                    <span style={{ color: '#8d8d8d' }}>Support</span>
-                    <span>Email / WhatsApp ready</span>
-                  </div>
+                  <DetailRow label="Order Access" value="Trade account login required" />
+                  <DetailRow label="Market" value="U.S. retail stores" />
+                  <DetailRow label="Support" value="Sales and trade support ready" />
                 </div>
               </div>
 
               <div
                 style={{
-                  display: 'grid',
-                  gap: 12,
-                  marginBottom: 26,
-                }}
-              >
-                {product.highlights.map((item) => (
-                  <div
-                    key={item}
-                    style={{
-                      padding: '14px 16px',
-                      border: '1px solid #222',
-                      background: '#0e0e0e',
-                      borderRadius: 14,
-                      color: '#d8d8d8',
-                    }}
-                  >
-                    {item}
-                  </div>
-                ))}
-              </div>
-
-              <div
-                style={{
-                  padding: 22,
+                  padding: isMobile ? 18 : 24,
                   background: '#0d0d0d',
-                  border: '1px solid #1d1d1d',
-                  borderRadius: 18,
-                  marginBottom: 22,
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: 22,
+                  marginBottom: isMobile ? 16 : 22,
                 }}
               >
-                <h3 style={{ marginTop: 0, marginBottom: 14, fontSize: 20 }}>
-                  Available Flavors
+                <h3 style={{ marginTop: 0, marginBottom: 14, fontSize: isMobile ? 18 : 20 }}>
+                  Flavor Options
                 </h3>
 
                 <div
@@ -703,7 +906,7 @@ export default function ProductDetailPage() {
                     gap: 10,
                   }}
                 >
-                  {product.flavors.map((flavor) => (
+                  {[product.flavor].map((flavor) => (
                     <MiniBadge key={flavor} text={flavor} />
                   ))}
                 </div>
@@ -711,13 +914,13 @@ export default function ProductDetailPage() {
 
               <div
                 style={{
-                  padding: 24,
+                  padding: isMobile ? 18 : 24,
                   background: '#0d0d0d',
-                  border: '1px solid #1d1d1d',
-                  borderRadius: 20,
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: 22,
                 }}
               >
-                <h3 style={{ marginTop: 0, marginBottom: 16, fontSize: 22 }}>
+                <h3 style={{ marginTop: 0, marginBottom: 18, fontSize: isMobile ? 20 : 22 }}>
                   Specifications
                 </h3>
 
@@ -733,13 +936,24 @@ export default function ProductDetailPage() {
                       style={{
                         display: 'flex',
                         justifyContent: 'space-between',
-                        gap: 20,
+                        gap: 16,
                         paddingBottom: 12,
                         borderBottom: '1px solid #1f1f1f',
+                        alignItems: 'flex-start',
                       }}
                     >
-                      <span style={{ color: '#8d8d8d' }}>{spec.label}</span>
-                      <span style={{ fontWeight: 600 }}>{spec.value}</span>
+                      <span style={{ color: '#8d8d8d', fontSize: isMobile ? 13 : 14 }}>
+                        {spec.label}
+                      </span>
+                      <span
+                        style={{
+                          fontWeight: 600,
+                          fontSize: isMobile ? 13 : 14,
+                          textAlign: 'right',
+                        }}
+                      >
+                        {spec.value}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -748,194 +962,165 @@ export default function ProductDetailPage() {
           </div>
         </div>
 
-        <div style={{ marginTop: 80 }}>
-          <h2 style={{ fontSize: 30, marginBottom: 20 }}>Video & Asset Slots</h2>
-
+        <div style={{ marginTop: isMobile ? 22 : 96 }}>
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: '1.2fr 0.9fr 0.9fr',
-              gap: 20,
+              gridTemplateColumns: isMobile ? '1fr' : '1.15fr 0.85fr',
+              gap: isMobile ? 14 : 20,
               alignItems: 'stretch',
             }}
           >
-            <div
-              style={{
-                background: '#111',
-                border: '1px solid #222',
-                borderRadius: 22,
-                padding: 22,
-                minHeight: 420,
-                display: 'flex',
-                flexDirection: 'column',
-              }}
-            >
-              <h3 style={{ marginTop: 0, marginBottom: 12, fontSize: 22 }}>
-                Product Video Placeholder
-              </h3>
-
-              <p style={{ color: '#a3a3a3', marginTop: 0, marginBottom: 16 }}>
-                Recommended video size: 1920 × 1080
-              </p>
-
-              <div
-                style={{
-                  aspectRatio: '16 / 9',
-                  borderRadius: 16,
-                  border: '1px dashed #333',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#777',
-                  background: '#0d0d0d',
-                  marginBottom: 16,
-                }}
-              >
-                Video area for future product demo
-              </div>
-
-              <div
-                style={{
-                  display: 'grid',
-                  gap: 10,
-                  marginTop: 'auto',
-                }}
-              >
+            {isMobile ? (
+              <>
                 <div
                   style={{
-                    padding: '12px 14px',
-                    borderRadius: 14,
-                    border: '1px solid #1f1f1f',
-                    background: '#0d0d0d',
-                    color: '#d7d7d7',
-                    fontSize: 14,
+                    background:
+                      'linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02)), #101010',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    borderRadius: 24,
+                    padding: 18,
+                    boxShadow: '0 18px 56px rgba(0,0,0,0.22)',
                   }}
                 >
-                  Suggested use: product rotation / detail showcase / flavor highlight
+                  <h3 style={{ marginTop: 0, marginBottom: 14, fontSize: 22 }}>
+                    Wholesale Overview
+                  </h3>
+
+                  <p
+                    style={{
+                      color: '#a5a5a5',
+                      lineHeight: 1.82,
+                      marginTop: 0,
+                      marginBottom: 0,
+                      fontSize: 15,
+                    }}
+                  >
+                    Built to support premium shelf presentation, cleaner restocking decisions, and
+                    dependable replenishment planning for U.S. retail store accounts.
+                  </p>
                 </div>
 
                 <div
                   style={{
-                    padding: '12px 14px',
-                    borderRadius: 14,
-                    border: '1px solid #1f1f1f',
-                    background: '#0d0d0d',
-                    color: '#d7d7d7',
-                    fontSize: 14,
+                    padding: 18,
+                    background:
+                      'linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02)), #101010',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    borderRadius: 24,
                   }}
                 >
-                  Ideal for future TikTok, Meta ads, and landing page conversion assets
+                  <p
+                    style={{
+                      marginTop: 0,
+                      marginBottom: 12,
+                      color: '#8d8d8d',
+                      fontSize: 12,
+                      letterSpacing: 1.5,
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    Trade Notes
+                  </p>
+
+                  <div
+                    style={{
+                      display: 'grid',
+                      gap: 12,
+                      color: '#d6d6d6',
+                      fontSize: 14,
+                      lineHeight: 1.8,
+                    }}
+                  >
+                    <div>Premium wholesale presentation</div>
+                    <div>Built for U.S. retail store review</div>
+                    <div>Prepared for repeat replenishment</div>
+                  </div>
                 </div>
-              </div>
-            </div>
+              </>
+            ) : (
+              <>
+                <div
+                  style={{
+                    background:
+                      'linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02)), #101010',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    borderRadius: 28,
+                    padding: 28,
+                    boxShadow: '0 18px 56px rgba(0,0,0,0.22)',
+                  }}
+                >
+                  <p
+                    style={{
+                      marginTop: 0,
+                      marginBottom: 12,
+                      color: '#8d8d8d',
+                      fontSize: 12,
+                      letterSpacing: 1.5,
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    Wholesale Overview
+                  </p>
 
-            <InfoCard
-              title="Main Product Image"
-              value="1600 × 2000"
-              description="Use this slot for a clean single-product hero shot. Avoid placing large text directly on the image for premium detail pages."
-            />
+                  <h3 style={{ marginTop: 0, marginBottom: 12, fontSize: 26 }}>
+                    Built for shelf presence and repeat ordering.
+                  </h3>
 
-            <InfoCard
-              title="Thumbnail Images"
-              value="800 × 800"
-              description="Use square supporting images for packaging, flavor variants, texture closeups, charging view, or side profile."
-            />
-          </div>
+                  <p
+                    style={{
+                      marginTop: 0,
+                      marginBottom: 0,
+                      color: '#a5a5a5',
+                      lineHeight: 1.9,
+                      fontSize: 15,
+                      maxWidth: 720,
+                    }}
+                  >
+                    A flavor-led SKU suited to retail accounts that need presentation quality, reorder
+                    clarity, and steady wholesale continuity.
+                  </p>
+                </div>
 
-          <div
-            style={{
-              marginTop: 20,
-              display: 'grid',
-              gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-              gap: 20,
-            }}
-          >
-            <div
-              style={{
-                background: '#111',
-                border: '1px solid #222',
-                borderRadius: 20,
-                padding: 20,
-              }}
-            >
-              <p
-                style={{
-                  marginTop: 0,
-                  marginBottom: 10,
-                  color: '#8d8d8d',
-                  fontSize: 12,
-                  letterSpacing: 1.5,
-                  textTransform: 'uppercase',
-                }}
-              >
-                Flavor Visual Slot
-              </p>
-              <h3 style={{ marginTop: 0, marginBottom: 12, fontSize: 22 }}>
-                1200 × 1200
-              </h3>
-              <p style={{ margin: 0, color: '#a5a5a5', lineHeight: 1.7 }}>
-                Best for future flavor graphics, icons, or lifestyle square visuals.
-              </p>
-            </div>
-
-            <div
-              style={{
-                background: '#111',
-                border: '1px solid #222',
-                borderRadius: 20,
-                padding: 20,
-              }}
-            >
-              <p
-                style={{
-                  marginTop: 0,
-                  marginBottom: 10,
-                  color: '#8d8d8d',
-                  fontSize: 12,
-                  letterSpacing: 1.5,
-                  textTransform: 'uppercase',
-                }}
-              >
-                Packaging Image Slot
-              </p>
-              <h3 style={{ marginTop: 0, marginBottom: 12, fontSize: 22 }}>
-                1400 × 1800
-              </h3>
-              <p style={{ margin: 0, color: '#a5a5a5', lineHeight: 1.7 }}>
-                Suitable for box shots, label closeups, and retail presentation.
-              </p>
-            </div>
-
-            <div
-              style={{
-                background: '#111',
-                border: '1px solid #222',
-                borderRadius: 20,
-                padding: 20,
-              }}
-            >
-              <p
-                style={{
-                  marginTop: 0,
-                  marginBottom: 10,
-                  color: '#8d8d8d',
-                  fontSize: 12,
-                  letterSpacing: 1.5,
-                  textTransform: 'uppercase',
-                }}
-              >
-                Ad Banner Slot
-              </p>
-              <h3 style={{ marginTop: 0, marginBottom: 12, fontSize: 22 }}>
-                1920 × 900
-              </h3>
-              <p style={{ margin: 0, color: '#a5a5a5', lineHeight: 1.7 }}>
-                Good for campaign banners, category headers, and homepage promotional strips.
-              </p>
-            </div>
+                <InfoCard
+                  title="Packaging and reorder fit"
+                  value="Store-ready"
+                  description="Clean presentation, practical shelf use, and dependable fit for repeat account ordering."
+                />
+              </>
+            )}
           </div>
         </div>
       </div>
     </div>
   )
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        gap: 12,
+        color: '#d6d6d6',
+        fontSize: 14,
+        alignItems: 'flex-start',
+      }}
+    >
+      <span style={{ color: '#8d8d8d' }}>{label}</span>
+      <span style={{ textAlign: 'right' }}>{value}</span>
+    </div>
+  )
+}
+
+const secondaryActionStyle: React.CSSProperties = {
+  height: 48,
+  padding: '0 18px',
+  borderRadius: 999,
+  border: '1px solid rgba(255,255,255,0.1)',
+  background: '#101010',
+  color: '#fff',
+  cursor: 'pointer',
+  fontSize: 14,
 }
