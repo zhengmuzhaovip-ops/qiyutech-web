@@ -21,10 +21,13 @@ const STORAGE_KEY = 'qiyutech_cart';
 const CartContext = createContext<CartContextValue | null>(null);
 
 function normalizeStoredItem(item: CartItem): CartItem {
+  const normalizedProductId = item.productId || item.id.split('-')[0];
+
   if (item.slug === 'qiyu-ultra-6000' || item.id.startsWith('qiyu-ultra-6000-')) {
     return {
       ...item,
-      name: 'GEEK BAR PULSE X — Pear Of Thieves',
+      productId: normalizedProductId,
+      name: 'GEEK BAR PULSE X - Pear Of Thieves',
       image: '/images/catalog-geek-bar-pulse-x-pear-of-thieves.png',
       selectedFlavor: item.selectedFlavor || 'Pear Of Thieves',
     };
@@ -33,13 +36,17 @@ function normalizeStoredItem(item: CartItem): CartItem {
   if (item.slug === 'qiyu-mini-4000' || item.id.startsWith('qiyu-mini-4000-')) {
     return {
       ...item,
-      name: 'GEEK BAR PULSE X — Raspberry Peach Lime',
+      productId: normalizedProductId,
+      name: 'GEEK BAR PULSE X - Raspberry Peach Lime',
       image: '/images/catalog-geek-bar-pulse-x-raspberry-peach-lime.png',
       selectedFlavor: item.selectedFlavor || 'Raspberry Peach Lime',
     };
   }
 
-  return item;
+  return {
+    ...item,
+    productId: normalizedProductId,
+  };
 }
 
 function readStoredCart(): CartItem[] {
@@ -73,7 +80,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         if (existing) {
           persist(
             items.map((item) =>
-              item.id === lineId ? { ...item, quantity: item.quantity + quantity } : item,
+              item.id === lineId ? { ...item, productId: product.id, quantity: item.quantity + quantity } : item,
             ),
           );
           return;
@@ -83,6 +90,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           ...items,
           {
             id: lineId,
+            productId: product.id,
             slug: product.slug,
             name: product.name,
             image: product.image,

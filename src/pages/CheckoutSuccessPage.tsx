@@ -1,9 +1,12 @@
 import { useState } from 'react';
 import { Link, useLocation, Navigate } from 'react-router-dom';
 import { downloadInvoicePdf, type InvoiceOrderPayload } from '../lib/invoice';
+import { useAuth } from '../context/AuthContext';
+import { downloadWholesaleInvoicePdf } from '../lib/orders';
 
 export default function CheckoutSuccessPage() {
   const location = useLocation();
+  const { token } = useAuth();
   const state = location.state as InvoiceOrderPayload | null;
   const [isDownloading, setIsDownloading] = useState(false);
 
@@ -13,10 +16,16 @@ export default function CheckoutSuccessPage() {
 
   const order = state;
 
-  function handleDownloadInvoice() {
+  async function handleDownloadInvoice() {
     setIsDownloading(true);
 
     try {
+      if (token && order.orderId) {
+        await downloadWholesaleInvoicePdf(token, order.orderId, order.orderNumber);
+      } else {
+        downloadInvoicePdf(order);
+      }
+    } catch {
       downloadInvoicePdf(order);
     } finally {
       window.setTimeout(() => setIsDownloading(false), 500);
@@ -40,15 +49,15 @@ export default function CheckoutSuccessPage() {
         <div className="mt-6 grid gap-3 sm:mt-8 sm:gap-4 lg:grid-cols-3">
           <TrustCard
             title="Order captured"
-            body="Order details are captured in the current flow and ready to map into a future order management API."
+            body="Order details are saved in the current wholesale flow and linked to your account record."
           />
           <TrustCard
             title="Bank transfer next"
             body="This order is now ready for offline payment by bank transfer once the invoice and remittance details are provided."
           />
           <TrustCard
-            title="Processing next"
-            body="A production workflow can support invoice generation, payment confirmation, and fulfillment updates in the next release."
+            title="Invoice ready"
+            body="Download the invoice PDF from this page and use the order reference for your payment transfer."
           />
         </div>
 
@@ -62,7 +71,7 @@ export default function CheckoutSuccessPage() {
                 Order details for your account
               </h2>
               <p className="mt-2 text-[13px] leading-6 text-neutral-400 sm:text-sm sm:leading-7">
-                This area is ready to support payment status, invoicing, and fulfillment updates later.
+                The order summary below matches the saved order record and invoice download for this transaction.
               </p>
             </div>
             <div className="grid gap-3 sm:gap-4 sm:grid-cols-2">
@@ -72,11 +81,13 @@ export default function CheckoutSuccessPage() {
               <Info label="Email" value={order.email || 'Not provided'} />
               <Info label="Company" value={order.company || 'Store account'} />
               <Info label="Payment method" value="Bank transfer" />
-              <Info label="Units" value={String(order.totalItems)} />
+              <Info label="Order status" value={formatStatus(order.orderStatus || 'pending')} />
               <Info
-                label="Invoice status"
-                value="Ready to download"
+                label="Payment status"
+                value={formatStatus(order.paymentStatus || 'unpaid')}
               />
+              <Info label="Units" value={String(order.totalItems)} />
+              <Info label="Invoice status" value="Ready to download" />
             </div>
           </section>
 
@@ -134,8 +145,8 @@ export default function CheckoutSuccessPage() {
                   {isDownloading ? 'Preparing invoice PDF...' : 'Download invoice PDF'}
                 </button>
                 <p className="text-[12px] leading-5 text-neutral-500">
-                  This invoice PDF is generated from the current order details and is ready for your
-                  final bank information later.
+                  This invoice PDF is served by the order record when available, with a safe fallback
+                  to the current order details in the browser.
                 </p>
                 <Link
                   to="/products"
@@ -193,4 +204,11 @@ function PriceRow({
       <span className="text-white">{displayValue}</span>
     </div>
   );
+}
+
+function formatStatus(value: string) {
+  return value
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
 }

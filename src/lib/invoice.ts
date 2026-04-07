@@ -13,8 +13,11 @@ type ShippingAddress = {
 };
 
 export type InvoiceOrderPayload = {
+  orderId?: string;
   orderNumber: string;
   placedAt: string;
+  orderStatus?: string;
+  paymentStatus?: string;
   customer: string;
   email: string;
   phone?: string;

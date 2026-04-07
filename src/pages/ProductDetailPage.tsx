@@ -4,6 +4,7 @@ import { Button } from '../components/ui/Button'
 import { useCart } from '../context/CartContext'
 import { siteSettings } from '../data/site'
 import { getWholesaleProductBySlug, wholesaleProducts } from '../data/wholesaleProducts'
+import { fetchPublicProductBySlug, type PublicProduct } from '../lib/catalog'
 
 const qtyButtonStyle: React.CSSProperties = {
   width: 46,
@@ -85,8 +86,9 @@ export default function ProductDetailPage() {
   const [viewportWidth, setViewportWidth] = useState(() =>
     typeof window === 'undefined' ? 1440 : window.innerWidth,
   )
+  const [remoteProduct, setRemoteProduct] = useState<PublicProduct | null>(null)
 
-  const product = useMemo(() => {
+  const fallbackProduct = useMemo(() => {
     const currentSlug = (slug || '').toLowerCase()
     if (currentSlug.includes('mini')) {
       return wholesaleProducts[1]
@@ -109,6 +111,32 @@ export default function ProductDetailPage() {
   }, [slug])
 
   useEffect(() => {
+    let active = true
+
+    setRemoteProduct(null)
+
+    if (!slug) {
+      return () => {
+        active = false
+      }
+    }
+
+    fetchPublicProductBySlug(slug)
+      .then((product) => {
+        if (active) {
+          setRemoteProduct(product)
+        }
+      })
+      .catch(() => {
+        // Keep static fallback product when the backend detail route is not ready.
+      })
+
+    return () => {
+      active = false
+    }
+  }, [slug])
+
+  useEffect(() => {
     if (typeof window === 'undefined') {
       return
     }
@@ -121,8 +149,16 @@ export default function ProductDetailPage() {
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
+  const product = remoteProduct ?? fallbackProduct
+  const normalizedSpecs = (product.specs || [])
+    .map((spec) => ({
+      label: spec.label || '',
+      value: spec.value || '',
+    }))
+    .filter((spec) => spec.label && spec.value)
   const currentImage = activeImage || product.image
   const isMobile = viewportWidth <= 768
+  const isOutOfStock = product.stock <= 0
   const phoneHref = `tel:${siteSettings.phone.replace(/[^\d+]/g, '')}`
   const emailHref = `mailto:${siteSettings.email}`
   const modalCopy =
@@ -139,6 +175,16 @@ export default function ProductDetailPage() {
           description:
             'For account setup, reorder planning, and store delivery coordination, contact our trade support team.',
         }
+
+  useEffect(() => {
+    setQuantity((current) => {
+      if (product.stock <= 0) {
+        return 1
+      }
+
+      return Math.min(current, product.stock)
+    })
+  }, [product.id, product.stock])
 
   return (
     <div
@@ -712,6 +758,7 @@ export default function ProductDetailPage() {
                       display: 'grid',
                       gap: 8,
                       flex: '0 0 auto',
+                      minWidth: 0,
                     }}
                   >
                     <div
@@ -749,32 +796,43 @@ export default function ProductDetailPage() {
 
                       <button
                         type="button"
-                        onClick={() => setQuantity((prev) => prev + 1)}
+                        onClick={() => setQuantity((prev) => Math.min(product.stock, prev + 1))}
+                        disabled={isOutOfStock || quantity >= product.stock}
                         style={{
                           ...qtyButtonStyle,
                           width: isMobile ? 38 : qtyButtonStyle.width,
                           height: isMobile ? 42 : qtyButtonStyle.height,
+                          opacity: isOutOfStock || quantity >= product.stock ? 0.35 : 1,
+                          cursor:
+                            isOutOfStock || quantity >= product.stock
+                              ? 'not-allowed'
+                              : qtyButtonStyle.cursor,
                         }}
                       >
                         +
                       </button>
                     </div>
 
-                    <div style={{ color: '#8d8d8d', fontSize: 13 }}>Select order quantity</div>
+                    <div style={{ color: '#8d8d8d', fontSize: 13 }}>
+                      {isOutOfStock ? 'This item is currently unavailable.' : 'Select order quantity'}
+                    </div>
                   </div>
 
                   <div
                     style={{
-                      width: isMobile ? 176 : 196,
-                      minWidth: isMobile ? 176 : 196,
-                      padding: isMobile ? '0 14px' : '0 16px',
+                      width: isMobile ? 124 : 'auto',
+                      minWidth: isMobile ? 124 : 196,
+                      maxWidth: '100%',
+                      padding: isMobile ? '0 10px' : '0 16px',
                       borderRadius: 16,
-                      border: '1px solid rgba(255,255,255,0.08)',
-                      background: '#0f0f0f',
+                      border: isOutOfStock
+                        ? '1px solid rgba(248,113,113,0.2)'
+                        : '1px solid rgba(255,255,255,0.08)',
+                      background: isOutOfStock ? 'rgba(127,29,29,0.18)' : '#0f0f0f',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
-                      gap: 10,
+                      gap: isMobile ? 8 : 10,
                       height: isMobile ? 42 : 46,
                       flex: '0 0 auto',
                     }}
@@ -782,15 +840,15 @@ export default function ProductDetailPage() {
                     <p
                       style={{
                         margin: 0,
-                        color: '#8d8d8d',
-                        fontSize: isMobile ? 10 : 11,
-                        letterSpacing: isMobile ? 1 : 1.4,
+                        color: isOutOfStock ? '#fecaca' : '#8d8d8d',
+                        fontSize: isMobile ? 8 : 11,
+                        letterSpacing: isMobile ? 0.6 : 1.4,
                         textTransform: 'uppercase',
                         whiteSpace: 'nowrap',
                         flexShrink: 1,
                       }}
                     >
-                      In stock
+                      {isOutOfStock ? 'Out of stock' : 'In stock'}
                     </p>
                     <div
                       style={{
@@ -799,8 +857,9 @@ export default function ProductDetailPage() {
                         lineHeight: 1,
                         whiteSpace: 'nowrap',
                         flexShrink: 0,
-                        minWidth: isMobile ? '6ch' : '7ch',
+                        minWidth: isMobile ? '2ch' : '7ch',
                         textAlign: 'right',
+                        color: isOutOfStock ? '#fecaca' : '#fff',
                       }}
                     >
                       {product.stock}
@@ -816,7 +875,11 @@ export default function ProductDetailPage() {
                   }}
                 >
                   <Button
-                    onClick={() =>
+                    onClick={() => {
+                      if (isOutOfStock) {
+                        return
+                      }
+
                       addToCart({
                         product: {
                           id: product.id,
@@ -830,13 +893,15 @@ export default function ProductDetailPage() {
                           gallery: product.gallery,
                           flavors: [product.flavor],
                           features: product.highlights,
-                          specs: product.specs,
+                          specs: normalizedSpecs,
                         },
                         quantity,
                       })
-                    }
+                    }}
+                    disabled={isOutOfStock}
+                    className="disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
                   >
-                    Add to Order
+                    {isOutOfStock ? 'Out of Stock' : 'Add to Order'}
                   </Button>
 
                   <div
@@ -930,7 +995,7 @@ export default function ProductDetailPage() {
                     gap: 12,
                   }}
                 >
-                  {product.specs.map((spec) => (
+                  {normalizedSpecs.map((spec) => (
                     <div
                       key={spec.label}
                       style={{

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { useAuth } from '../context/AuthContext';
+import { loginTradeAccount } from '../lib/auth';
 
 const blockedEmailDomains = ['example.com', 'mailinator.com', 'tempmail.com', '10minutemail.com', 'guerrillamail.com', 'yopmail.com'];
 
@@ -52,6 +53,9 @@ export default function LoginPage() {
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [website, setWebsite] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formStartedAt] = useState(() => Date.now());
 
   const identifierType = useMemo(() => {
     const trimmed = identifier.trim();
@@ -59,7 +63,7 @@ export default function LoginPage() {
     return trimmed.includes('@') ? 'email' : 'phone';
   }, [identifier]);
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
 
     const identifierError = validateIdentifier(identifier);
@@ -71,17 +75,34 @@ export default function LoginPage() {
       return;
     }
 
-    const trimmed = identifier.trim();
-    login('demo-token', {
-      id: `trade-user-${identifierType}`,
-      name: 'Trade Contact',
-      email: identifierType === 'email' ? trimmed.toLowerCase() : '',
-      phone: identifierType === 'phone' ? normalizePhone(trimmed) : undefined,
-      role: 'customer',
-    });
+    try {
+      setIsSubmitting(true);
+      const { token, user } = await loginTradeAccount({
+        identifier: identifier.trim(),
+        password,
+        website,
+        submittedAt: formStartedAt,
+      });
 
-    setError('');
-    navigate(from, { replace: true });
+      login(token, {
+        ...user,
+        email: identifierType === 'email' ? user.email || identifier.trim().toLowerCase() : user.email,
+        phone:
+          identifierType === 'phone'
+            ? user.phone || normalizePhone(identifier.trim())
+            : user.phone,
+      });
+      setError('');
+      navigate(from, { replace: true });
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : 'Unable to sign in right now. Please try again.',
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -157,6 +178,27 @@ export default function LoginPage() {
         </p>
 
         <form onSubmit={handleSubmit}>
+          <div
+            style={{
+              position: 'absolute',
+              left: -9999,
+              width: 1,
+              height: 1,
+              overflow: 'hidden',
+            }}
+            aria-hidden="true"
+          >
+            <label htmlFor="trade-website">Website</label>
+            <input
+              id="trade-website"
+              type="text"
+              tabIndex={-1}
+              autoComplete="off"
+              value={website}
+              onChange={(e) => setWebsite(e.target.value)}
+            />
+          </div>
+
           <label
             style={{
               display: 'block',
@@ -222,11 +264,11 @@ export default function LoginPage() {
             <div
               style={{
                 marginBottom: 18,
-                borderRadius: 14,
-                border: '1px solid rgba(255,255,255,0.08)',
-                background: '#0c0c0c',
+                borderRadius: 16,
+                border: '1px solid rgba(239,68,68,0.38)',
+                background: 'rgba(127,29,29,0.16)',
                 padding: '12px 14px',
-                color: '#d7d7d7',
+                color: '#fca5a5',
                 fontSize: 13,
                 lineHeight: 1.6,
               }}
@@ -235,7 +277,9 @@ export default function LoginPage() {
             </div>
           ) : null}
 
-          <Button type="submit">Login</Button>
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? 'Logging in...' : 'Login'}
+          </Button>
         </form>
 
         <p style={{ marginTop: 18, color: '#8a8a8a', fontSize: 14, lineHeight: 1.7 }}>

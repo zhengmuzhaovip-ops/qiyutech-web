@@ -1,5 +1,6 @@
 import { Link, NavLink } from 'react-router-dom';
 import { useCart } from '../../context/CartContext';
+import { useAuth } from '../../context/AuthContext';
 import { siteSettings } from '../../data/site';
 
 const navItems = [
@@ -11,6 +12,9 @@ const navItems = [
 
 export default function Header() {
   const { totalItems } = useCart();
+  const { user } = useAuth();
+  const headerNavItems =
+    user?.role === 'admin' ? [...navItems, { label: 'Admin', to: '/admin' }] : navItems;
 
   return (
     <header className="sticky top-0 z-40 border-b border-white/10 bg-black/90 backdrop-blur">
@@ -20,7 +24,7 @@ export default function Header() {
         </Link>
 
         <nav className="hidden items-center gap-6 md:flex">
-          {navItems.map((item) => (
+          {headerNavItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -34,18 +38,24 @@ export default function Header() {
         </nav>
 
         <div className="flex items-center gap-4 text-sm">
-          <a href={`tel:${siteSettings.phone}`} className="hidden text-neutral-400 hover:text-white sm:block">
+          <a
+            href={`tel:${siteSettings.phone}`}
+            className="hidden text-neutral-400 hover:text-white sm:block"
+          >
             {siteSettings.phone}
           </a>
-          <Link to="/cart" className="rounded-full border border-white/10 px-4 py-2 text-white hover:border-white/30">
+          <Link
+            to="/cart"
+            className="rounded-full border border-white/10 px-4 py-2 text-white hover:border-white/30"
+          >
             Order Review ({totalItems})
           </Link>
         </div>
       </div>
 
-      <div className="border-t border-white/5 md:hidden overflow-hidden">
+      <div className="overflow-hidden border-t border-white/5 md:hidden">
         <nav className="mx-auto flex max-w-full gap-2 overflow-x-auto px-3 py-3 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-          {navItems.map((item) => (
+          {headerNavItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}

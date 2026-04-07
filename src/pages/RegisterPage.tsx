@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { useAuth } from '../context/AuthContext';
+import { registerTradeAccount } from '../lib/auth';
 
 const blockedEmailDomains = ['example.com', 'mailinator.com', 'tempmail.com', '10minutemail.com', 'guerrillamail.com', 'yopmail.com'];
 
@@ -44,18 +45,25 @@ function validatePassword(value: string) {
 }
 
 export default function RegisterPage() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const { isLoggedIn, login } = useAuth();
   const [name, setName] = useState('');
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
+  const [website, setWebsite] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formStartedAt] = useState(() => Date.now());
+
+  const from = (location.state as { from?: string } | null)?.from || '/account';
 
   if (isLoggedIn) {
-    return <Navigate to="/account" replace />;
+    return <Navigate to={from} replace />;
   }
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const trimmedName = name.trim();
@@ -83,16 +91,35 @@ export default function RegisterPage() {
       return;
     }
 
-    const isEmail = trimmedIdentifier.includes('@');
-    login('demo-token', {
-      id: `trade-user-${trimmedName.toLowerCase().replace(/\s+/g, '-')}`,
-      name: trimmedName,
-      email: isEmail ? trimmedIdentifier.toLowerCase() : '',
-      phone: isEmail ? undefined : normalizePhone(trimmedIdentifier),
-      role: 'customer',
-    });
+    try {
+      setIsSubmitting(true);
+      const { token, user } = await registerTradeAccount({
+        name: trimmedName,
+        identifier: trimmedIdentifier,
+        password,
+        website,
+        submittedAt: formStartedAt,
+      });
 
-    setError('');
+      const isEmail = trimmedIdentifier.includes('@');
+      login(token, {
+        ...user,
+        name: user.name || trimmedName,
+        email: isEmail ? user.email || trimmedIdentifier.toLowerCase() : user.email,
+        phone: isEmail ? user.phone : user.phone || normalizePhone(trimmedIdentifier),
+      });
+
+      setError('');
+      navigate(from, { replace: true });
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : 'Unable to create the account right now. Please try again.',
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -105,8 +132,23 @@ export default function RegisterPage() {
         <p className="mt-3 max-w-lg text-sm leading-8 text-neutral-400 sm:leading-7">
           Register with a business email or mobile number to prepare for wholesale ordering, account review, and repeat replenishment support.
         </p>
+        <div className="mt-4 rounded-[1.1rem] border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm leading-6 text-emerald-200">
+          Mobile registration is recommended.
+        </div>
 
         <form className="mt-8 space-y-5 sm:space-y-5" onSubmit={handleSubmit}>
+          <div className="absolute left-[-9999px] top-auto h-px w-px overflow-hidden" aria-hidden="true">
+            <label htmlFor="register-website">Website</label>
+            <input
+              id="register-website"
+              type="text"
+              tabIndex={-1}
+              autoComplete="off"
+              value={website}
+              onChange={(event) => setWebsite(event.target.value)}
+            />
+          </div>
+
           <label className="block text-sm text-neutral-300">
             Business contact name
             <input
@@ -159,12 +201,14 @@ export default function RegisterPage() {
           </div>
 
           {error ? (
-            <div className="rounded-2xl border border-white/10 bg-black px-4 py-3 text-sm leading-6 text-neutral-300">
+            <div className="rounded-2xl border border-red-500/35 bg-red-950/20 px-4 py-3 text-sm leading-6 text-red-300">
               {error}
             </div>
           ) : null}
 
-          <Button type="submit">Create account</Button>
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? 'Creating account...' : 'Create account'}
+          </Button>
         </form>
       </div>
     </div>

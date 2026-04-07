@@ -3,5 +3,7 @@ dist
 .env
 .env.*
 .vercel
+.vite.log
+.vite.err.log
 .vite-mobile.log
 .vite-mobile.err.log

@@ -4,6 +4,8 @@ import { ButtonLink } from '../components/ui/Button';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import type { InvoiceOrderPayload } from '../lib/invoice';
+import { updateTradeProfile } from '../lib/auth';
+import { createWholesaleOrder } from '../lib/orders';
 
 type CheckoutFormState = {
   company: string;
@@ -37,15 +39,27 @@ const initialFormState: CheckoutFormState = {
 
 export default function CheckoutPage() {
   const { items, subtotal, totalItems, clearCart } = useCart();
-  const { isLoggedIn, user } = useAuth();
+  const { isLoggedIn, user, token, updateUser } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [checkoutError, setCheckoutError] = useState('');
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const [form, setForm] = useState<CheckoutFormState>(() => ({
     ...initialFormState,
     contactName: user?.name ?? '',
     email: user?.email ?? '',
+    phone: user?.phone ?? '',
+    company: user?.company ?? '',
+    businessType: user?.businessType ?? '',
+    country: user?.address?.country || 'United States',
+    state: user?.address?.state ?? '',
+    city: user?.address?.city ?? '',
+    address: user?.address?.street ?? '',
+    postalCode: user?.address?.zipCode ?? '',
   }));
   const paymentMethod: PaymentMethod = 'bank_transfer';
+  const accountPhoneMissing = !user?.phone?.trim();
 
   const shippingFee = subtotal >= 150 ? 0 : items.length > 0 ? 18 : 0;
   const estimatedTax = subtotal > 0 ? subtotal * 0.08 : 0;
@@ -66,6 +80,14 @@ export default function CheckoutPage() {
         ...current,
         contactName: current.contactName || user.name,
         email: current.email || user.email,
+        phone: current.phone || user.phone || '',
+        company: current.company || user.company || '',
+        businessType: current.businessType || user.businessType || '',
+        country: current.country || user.address?.country || 'United States',
+        state: current.state || user.address?.state || '',
+        city: current.city || user.address?.city || '',
+        address: current.address || user.address?.street || '',
+        postalCode: current.postalCode || user.address?.zipCode || '',
       }));
     }
   }, [user]);
@@ -74,52 +96,168 @@ export default function CheckoutPage() {
     return null;
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  const currentUser = user;
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (items.length === 0) {
       return;
     }
 
-    const orderNumber = `QY-${Date.now().toString().slice(-8)}`;
-    const placedAt = new Date().toLocaleString('en-US', {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-    });
+    if (!form.phone.trim()) {
+      setCheckoutError('A mobile number is required before you can place this wholesale order.');
+      return;
+    }
 
-    clearCart();
-    navigate('/checkout/success', {
-      replace: true,
-      state: {
-        orderNumber,
-        placedAt,
-        customer: form.contactName || user?.name || 'Store Purchasing Contact',
-        email: form.email || user?.email || '',
-        phone: form.phone,
-        company: form.company,
-        businessType: form.businessType,
-        paymentMethod,
-        totalItems,
-        subtotal,
-        shippingFee,
-        estimatedTax,
-        orderTotal,
-        notes: form.notes,
+    if (!token || !currentUser) {
+      setCheckoutError('Sign in again before placing this order.');
+      return;
+    }
+
+    const normalizedPhone = form.phone.trim();
+    const trimmedCompany = form.company.trim();
+    const trimmedBusinessType = form.businessType.trim();
+    const trimmedStreet = form.address.trim();
+    const trimmedCity = form.city.trim();
+    const trimmedState = form.state.trim();
+    const trimmedPostalCode = form.postalCode.trim();
+    const trimmedCountry = form.country.trim() || 'United States';
+    const normalizedContactName = form.contactName.trim();
+    const nameParts = normalizedContactName.split(/\s+/).filter(Boolean);
+    const nextFirstName = nameParts[0] || currentUser?.firstName || 'Trade';
+    const nextLastName = nameParts.slice(1).join(' ');
+
+    const shouldPersistProfile =
+      Boolean(token && currentUser) &&
+      (
+        normalizedPhone !== (currentUser?.phone || '').trim() ||
+        normalizedContactName !== (currentUser?.name || '').trim() ||
+        trimmedCompany !== (currentUser?.company || '').trim() ||
+        trimmedBusinessType !== (currentUser?.businessType || '').trim() ||
+        trimmedStreet !== (currentUser?.address?.street || '').trim() ||
+        trimmedCity !== (currentUser?.address?.city || '').trim() ||
+        trimmedState !== (currentUser?.address?.state || '').trim() ||
+        trimmedPostalCode !== (currentUser?.address?.zipCode || '').trim() ||
+        trimmedCountry !== ((currentUser?.address?.country || 'United States').trim())
+      );
+
+    if (token && currentUser && shouldPersistProfile) {
+      try {
+        setIsSavingProfile(true);
+        const nextUser = await updateTradeProfile(token, {
+          firstName: nextFirstName,
+          lastName: nextLastName,
+          phone: normalizedPhone,
+          company: trimmedCompany,
+          businessType: trimmedBusinessType,
+          address: {
+            street: trimmedStreet,
+            city: trimmedCity,
+            state: trimmedState,
+            zipCode: trimmedPostalCode,
+            country: trimmedCountry,
+          },
+        });
+        updateUser(nextUser);
+      } catch (profileError) {
+        setCheckoutError(
+          profileError instanceof Error
+            ? profileError.message
+            : 'Unable to save the mobile number for this account.',
+        );
+        return;
+      } finally {
+        setIsSavingProfile(false);
+      }
+    }
+
+    try {
+      setIsPlacingOrder(true);
+      setCheckoutError('');
+
+      const createdOrder = await createWholesaleOrder(token, {
         items: items.map((item) => ({
+          product: item.productId || null,
+          slug: item.slug,
           name: item.name,
+          selectedFlavor: item.selectedFlavor,
           price: item.price,
           quantity: item.quantity,
-          selectedFlavor: item.selectedFlavor,
+          image: item.image,
         })),
-        shippingAddress: {
-          country: form.country,
-          state: form.state,
-          city: form.city,
-          address: form.address,
-          postalCode: form.postalCode,
+        shippingInfo: {
+          contactName: normalizedContactName,
+          email: form.email.trim(),
+          phone: normalizedPhone,
+          company: trimmedCompany,
+          businessType: trimmedBusinessType,
+          address: trimmedStreet,
+          city: trimmedCity,
+          state: trimmedState,
+          zipCode: trimmedPostalCode,
+          country: trimmedCountry,
         },
-      } satisfies InvoiceOrderPayload,
-    });
+        paymentInfo: {
+          method: paymentMethod,
+        },
+        pricing: {
+          subtotal,
+          shipping: shippingFee,
+          tax: estimatedTax,
+          total: orderTotal,
+        },
+        note: form.notes.trim(),
+      });
+
+      const placedAt = new Date(createdOrder.placedAt).toLocaleString('en-US', {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      });
+
+      clearCart();
+      navigate('/checkout/success', {
+        replace: true,
+        state: {
+          orderId: createdOrder.id,
+          orderNumber: createdOrder.orderNumber,
+          placedAt,
+          orderStatus: createdOrder.status,
+          paymentStatus: createdOrder.paymentStatus,
+          customer: createdOrder.customer || normalizedContactName || currentUser.name,
+          email: createdOrder.email || form.email.trim(),
+          phone: createdOrder.phone || normalizedPhone,
+          company: createdOrder.company || trimmedCompany,
+          businessType: createdOrder.businessType || trimmedBusinessType,
+          paymentMethod,
+          totalItems: createdOrder.items.reduce((sum, item) => sum + item.quantity, 0),
+          subtotal: createdOrder.pricing.subtotal,
+          shippingFee: createdOrder.pricing.shipping,
+          estimatedTax: createdOrder.pricing.tax,
+          orderTotal: createdOrder.pricing.total,
+          notes: createdOrder.note || form.notes.trim(),
+          items: createdOrder.items.map((item) => ({
+            name: item.name,
+            price: item.price,
+            quantity: item.quantity,
+            selectedFlavor: item.selectedFlavor,
+          })),
+          shippingAddress: {
+            country: createdOrder.shippingAddress.country,
+            state: createdOrder.shippingAddress.state,
+            city: createdOrder.shippingAddress.city,
+            address: createdOrder.shippingAddress.address,
+            postalCode: createdOrder.shippingAddress.postalCode,
+          },
+        } satisfies InvoiceOrderPayload,
+      });
+    } catch (orderError) {
+      setCheckoutError(
+        orderError instanceof Error ? orderError.message : 'Unable to place this wholesale order.',
+      );
+    } finally {
+      setIsPlacingOrder(false);
+    }
   }
 
   return (
@@ -145,6 +283,12 @@ export default function CheckoutPage() {
           </div>
         </div>
       </div>
+
+      {accountPhoneMissing ? (
+        <div className="mb-5 rounded-[1.35rem] border border-amber-500/35 bg-amber-500/10 px-4 py-4 text-sm leading-6 text-amber-100 sm:mb-6 sm:rounded-[1.5rem] sm:px-5">
+          This account was created without a mobile number. Add a phone number in the contact section below before placing the order.
+        </div>
+      ) : null}
 
       {items.length === 0 ? (
         <div className="rounded-[1.75rem] border border-white/10 bg-neutral-950 p-6 sm:rounded-[2rem] sm:p-8">
@@ -182,19 +326,28 @@ export default function CheckoutPage() {
                     required
                   />
                   <Field
-                    label="Email"
+                    label="Email (optional)"
                     type="email"
                     value={form.email}
                     onChange={(value) => setForm((current) => ({ ...current, email: value }))}
                     placeholder="orders@yourstore.com"
-                    required
                   />
                   <Field
                     label="Phone"
                     value={form.phone}
-                    onChange={(value) => setForm((current) => ({ ...current, phone: value }))}
-                    placeholder="+1 (555) 000-0000"
+                    onChange={(value) => {
+                      setForm((current) => ({ ...current, phone: value }));
+                      if (checkoutError) {
+                        setCheckoutError('');
+                      }
+                    }}
+                    placeholder={accountPhoneMissing ? 'Add your mobile number' : '+1 (555) 000-0000'}
                     required
+                    hint={
+                      accountPhoneMissing
+                        ? 'Required before wholesale order submission.'
+                        : undefined
+                    }
                   />
                   <div className="hidden min-w-0 rounded-[1.15rem] border border-white/10 bg-black px-4 py-3 sm:block sm:rounded-[1.25rem]">
                     <p className="text-xs uppercase tracking-[0.22em] text-neutral-500">Account</p>
@@ -447,13 +600,24 @@ export default function CheckoutPage() {
               </p>
             </div>
 
+            {checkoutError ? (
+              <div className="mt-4 rounded-[1.15rem] border border-red-500/35 bg-red-950/20 px-4 py-3 text-sm leading-6 text-red-300 sm:mt-5 sm:rounded-[1.25rem]">
+                {checkoutError}
+              </div>
+            ) : null}
+
             <div className="mt-5 flex flex-col gap-3 sm:mt-6">
               <button
                 type="submit"
                 form="checkout-form"
                 className="inline-flex items-center justify-center rounded-full border border-white bg-white px-5 py-3 text-sm font-medium text-black transition hover:bg-neutral-100"
+                disabled={!form.phone.trim() || isSavingProfile || isPlacingOrder}
               >
-                Place order
+                {isSavingProfile
+                  ? 'Saving contact details...'
+                  : isPlacingOrder
+                    ? 'Placing order...'
+                    : 'Place order'}
               </button>
               <ButtonLink to="/cart" variant="secondary">
                 Back to order review
@@ -493,6 +657,7 @@ function Field({
   placeholder,
   required,
   type = 'text',
+  hint,
 }: {
   label: string;
   value: string;
@@ -500,6 +665,7 @@ function Field({
   placeholder: string;
   required?: boolean;
   type?: string;
+  hint?: string;
 }) {
   return (
     <label className="block text-sm text-neutral-300">
@@ -512,6 +678,7 @@ function Field({
         required={required}
         className="mt-2 h-11 w-full min-w-0 rounded-[1.15rem] border border-white/10 bg-black px-4 py-3 text-[15px] text-white outline-none placeholder:text-neutral-500 sm:rounded-[1.25rem]"
       />
+      {hint ? <span className="mt-2 block text-xs leading-5 text-amber-200">{hint}</span> : null}
     </label>
   );
 }

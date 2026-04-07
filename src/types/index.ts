@@ -39,6 +39,7 @@ export interface SiteSettings {
 
 export interface CartItem {
   id: string;
+  productId?: string;
   slug: string;
   name: string;
   image: string;
@@ -53,4 +54,15 @@ export interface AuthUser {
   email: string;
   phone?: string;
   role?: string;
+  firstName?: string;
+  lastName?: string;
+  company?: string;
+  businessType?: string;
+  address?: {
+    street?: string;
+    city?: string;
+    state?: string;
+    zipCode?: string;
+    country?: string;
+  };
 }
