@@ -530,6 +530,12 @@ export async function fetchAdminUsers(
   return result.users.map(mapAdminUser);
 }
 
+export async function deleteAdminUser(token: string, userId: string): Promise<void> {
+  await authorizedRequest<{ success: true; message: string }>(`/admin/users/${userId}`, token, {
+    method: 'DELETE',
+  });
+}
+
 export async function updateAdminOrderStatus(
   token: string,
   orderId: string,
@@ -543,6 +549,12 @@ export async function updateAdminOrderStatus(
       body: JSON.stringify(payload),
     },
   );
+}
+
+export async function deleteAdminOrder(token: string, orderId: string): Promise<void> {
+  await authorizedRequest<{ success: true; message: string }>(`/admin/orders/${orderId}`, token, {
+    method: 'DELETE',
+  });
 }
 
 export async function fetchAdminProductSeries(token: string): Promise<AdminProductSeries[]> {

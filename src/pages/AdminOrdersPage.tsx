@@ -4,6 +4,7 @@ import { Button } from '../components/ui/Button';
 import { useAuth } from '../context/AuthContext';
 import { downloadWholesaleInvoicePdf } from '../lib/orders';
 import {
+  deleteAdminOrder,
   fetchAdminDashboard,
   fetchAdminOrders,
   updateAdminOrderStatus,
@@ -43,6 +44,7 @@ export default function AdminOrdersPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [savingOrderId, setSavingOrderId] = useState<string | null>(null);
   const [downloadingOrderId, setDownloadingOrderId] = useState<string | null>(null);
+  const [deletingOrderId, setDeletingOrderId] = useState<string | null>(null);
   const [error, setError] = useState('');
 
   const isAdmin = user?.role === 'admin';
@@ -163,6 +165,27 @@ export default function AdminOrdersPage() {
       setError(downloadError instanceof Error ? downloadError.message : '无法下载订单 PDF。');
     } finally {
       setDownloadingOrderId(null);
+    }
+  }
+
+  async function handleDeleteOrder(order: AdminOrder) {
+    if (!token) return;
+
+    const confirmed = window.confirm(`确认删除订单 ${order.orderNumber} 吗？库存会自动恢复。`);
+    if (!confirmed) return;
+
+    try {
+      setDeletingOrderId(order.id);
+      await deleteAdminOrder(token, order.id);
+      if (expandedOrderId === order.id) {
+        setExpandedOrderId(null);
+      }
+      await refreshOrders();
+      setError('');
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : '无法删除这笔订单。');
+    } finally {
+      setDeletingOrderId(null);
     }
   }
 
@@ -381,7 +404,7 @@ export default function AdminOrdersPage() {
                                 {order.note}
                               </p>
                             ) : null}
-                            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                            <div className="mt-4 grid gap-3 sm:grid-cols-3">
                               <Button
                                 type="button"
                                 onClick={() => handleSave(order.id)}
@@ -398,6 +421,15 @@ export default function AdminOrdersPage() {
                                 className="w-full"
                               >
                                 {downloadingOrderId === order.id ? '正在生成 PDF...' : '下载 PDF'}
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="secondary"
+                                onClick={() => handleDeleteOrder(order)}
+                                disabled={deletingOrderId === order.id}
+                                className="w-full border-red-500/25 bg-red-500/10 text-red-200 hover:bg-red-500/15"
+                              >
+                                {deletingOrderId === order.id ? '删除中...' : '删除订单'}
                               </Button>
                             </div>
                           </div>

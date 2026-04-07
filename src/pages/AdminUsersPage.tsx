@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { fetchAdminUsers, type AdminUser } from '../lib/admin';
+import { deleteAdminUser, fetchAdminUsers, type AdminUser } from '../lib/admin';
 
 const roleOptions = ['', 'user', 'admin'];
 
@@ -10,7 +10,20 @@ export default function AdminUsersPage() {
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const [error, setError] = useState('');
+
+  async function refreshUsers(active = true) {
+    if (!token) return;
+
+    const nextUsers = await fetchAdminUsers(token, {
+      search: search.trim() || undefined,
+      role: roleFilter || undefined,
+    });
+
+    if (!active) return;
+    setUsers(nextUsers);
+  }
 
   useEffect(() => {
     if (!token) return;
@@ -18,13 +31,9 @@ export default function AdminUsersPage() {
     let active = true;
     setIsLoading(true);
 
-    fetchAdminUsers(token, {
-      search: search.trim() || undefined,
-      role: roleFilter || undefined,
-    })
-      .then((nextUsers) => {
+    refreshUsers(active)
+      .then(() => {
         if (!active) return;
-        setUsers(nextUsers);
         setError('');
       })
       .catch((loadError) => {
@@ -40,6 +49,24 @@ export default function AdminUsersPage() {
       active = false;
     };
   }, [token, search, roleFilter]);
+
+  async function handleDeleteUser(user: AdminUser) {
+    if (!token || user.role === 'admin') return;
+
+    const confirmed = window.confirm(`确认删除用户 ${user.name || user.email} 吗？`);
+    if (!confirmed) return;
+
+    try {
+      setDeletingUserId(user.id);
+      await deleteAdminUser(token, user.id);
+      await refreshUsers();
+      setError('');
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : '无法删除这个用户。');
+    } finally {
+      setDeletingUserId(null);
+    }
+  }
 
   const summary = useMemo(
     () => ({
@@ -120,7 +147,7 @@ export default function AdminUsersPage() {
                   key={user.id}
                   className="grid gap-4 px-5 py-5 lg:grid-cols-[1.1fr,1fr,0.75fr,1.1fr,0.7fr] lg:items-start"
                 >
-                  <div>
+                  <div className="space-y-3">
                     <p className="text-base font-medium text-white">{user.name}</p>
                     <p className="mt-2 text-xs uppercase tracking-[0.18em] text-neutral-500">
                       注册时间
@@ -140,10 +167,20 @@ export default function AdminUsersPage() {
                     <p>{user.phone || '暂无手机号'}</p>
                   </div>
 
-                  <div>
+                  <div className="space-y-3">
                     <span className="inline-flex rounded-full border border-white/10 px-3 py-1 text-xs uppercase tracking-[0.18em] text-neutral-300">
                       {user.role === 'admin' ? '管理员' : '用户'}
                     </span>
+                    {user.role !== 'admin' ? (
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteUser(user)}
+                        disabled={deletingUserId === user.id}
+                        className="inline-flex h-10 items-center justify-center rounded-[0.95rem] border border-red-500/25 bg-red-500/10 px-4 text-sm text-red-200 transition hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {deletingUserId === user.id ? '删除中...' : '删除用户'}
+                      </button>
+                    ) : null}
                   </div>
 
                   <div className="space-y-2 text-sm text-neutral-300">
