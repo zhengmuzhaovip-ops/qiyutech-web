@@ -1,4 +1,4 @@
-import { API_BASE_URL } from '../config';
+import { API_BASE_URL, config } from '../config';
 
 type PublicSpec = {
   label?: string;
@@ -50,17 +50,39 @@ export type PublicSeries = {
 };
 
 async function request<T>(path: string, token?: string | null): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    headers: token
-      ? {
-          Authorization: `Bearer ${token}`,
-        }
-      : undefined,
-  });
-  const result = await response.json();
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), config.api.timeout);
+
+  let response: Response;
+
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      headers: token
+        ? {
+            Authorization: `Bearer ${token}`,
+          }
+        : undefined,
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('The catalog request timed out. Please make sure the backend is running.');
+    }
+
+    throw new Error('Unable to reach the catalog service. Please check the backend connection.');
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+
+  const contentType = response.headers.get('content-type') || '';
+  const result = contentType.includes('application/json') ? await response.json() : null;
 
   if (!response.ok || result?.success === false) {
     throw new Error(result?.message || 'Request failed');
+  }
+
+  if (!result) {
+    throw new Error('Catalog response was not valid JSON.');
   }
 
   return result as T;

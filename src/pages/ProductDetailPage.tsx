@@ -149,6 +149,20 @@ export default function ProductDetailPage() {
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
+  useEffect(() => {
+    if (!remoteProduct) {
+      return
+    }
+
+    setQuantity((current) => {
+      if (remoteProduct.stock <= 0) {
+        return 1
+      }
+
+      return Math.min(current, remoteProduct.stock)
+    })
+  }, [remoteProduct])
+
   const product = remoteProduct
 
   if (isLoadingProduct) {
@@ -209,16 +223,6 @@ export default function ProductDetailPage() {
           description:
             'For account setup, reorder planning, and store delivery coordination, contact our trade support team.',
         }
-
-  useEffect(() => {
-    setQuantity((current) => {
-      if (product.stock <= 0) {
-        return 1
-      }
-
-      return Math.min(current, product.stock)
-    })
-  }, [product.id, product.stock])
 
   return (
     <div

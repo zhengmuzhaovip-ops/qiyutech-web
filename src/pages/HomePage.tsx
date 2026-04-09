@@ -447,6 +447,9 @@ export default function HomePage() {
                 <img
                   src="/images/home-hero-geek-bar-pulse-x.png"
                   alt="GEEK BAR PULSE X"
+                  loading="eager"
+                  fetchPriority="high"
+                  decoding="async"
                   style={{
                     width: '100%',
                     height: 384,
@@ -888,6 +891,9 @@ export default function HomePage() {
                   <img
                     src="/images/home-series-geek-bar-pulse-x-7x4.png"
                     alt="GEEK BAR PULSE X Series"
+                    loading="eager"
+                    fetchPriority="high"
+                    decoding="async"
                     style={{
                       width: '100%',
                       height: 192,
@@ -1091,6 +1097,9 @@ export default function HomePage() {
                 <img
                   src="/images/home-hero-geek-bar-pulse-x.png"
                   alt="GEEK BAR PULSE X"
+                  loading="eager"
+                  fetchPriority="high"
+                  decoding="async"
                   style={{
                     width: '100%',
                     height: '100%',
@@ -1903,6 +1912,9 @@ export default function HomePage() {
                 <img
                   src="/images/home-series-geek-bar-pulse-x-7x4.png"
                   alt="GEEK BAR PULSE X Series"
+                  loading="eager"
+                  fetchPriority="high"
+                  decoding="async"
                   style={{
                     width: '100%',
                     height: isMobile ? 152 : 308,

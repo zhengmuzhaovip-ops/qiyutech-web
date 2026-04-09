@@ -65,10 +65,12 @@ function CatalogProductCard({
   product,
   isMobile,
   onAdd,
+  prioritizeImage = false,
 }: {
   product: PublicProduct
   isMobile: boolean
   onAdd: (product: PublicProduct) => void
+  prioritizeImage?: boolean
 }) {
   const isOutOfStock = product.stock <= 0
   const pricingLabel = product.hasCustomPrice ? 'Your Price' : 'Price'
@@ -126,6 +128,9 @@ function CatalogProductCard({
             <img
               src={getCatalogFrameImage(product.slug) || product.image}
               alt={product.name}
+              loading={prioritizeImage ? 'eager' : 'lazy'}
+              fetchPriority={prioritizeImage ? 'high' : 'auto'}
+              decoding="async"
               style={{
                 width: '100%',
                 height: isMobile ? 260 : 400,
@@ -522,12 +527,13 @@ export default function ProductsPage() {
                 </div>
               </div>
 
-              {series.products.map((product) => (
+              {series.products.map((product, index) => (
                 <CatalogProductCard
                   key={product.id}
                   product={product}
                   isMobile={isMobile}
                   onAdd={handleAdd}
+                  prioritizeImage={index < 2}
                 />
               ))}
             </div>
