@@ -15,8 +15,11 @@ export default function CartPage() {
               <h1 className="text-[2.25rem] font-semibold leading-none text-white sm:text-3xl">
                 Order Review
               </h1>
-              <p className="mt-3 max-w-[15rem] text-sm leading-8 text-neutral-400 sm:mt-2 sm:max-w-none sm:leading-6">
-                Review store quantities, confirm line totals, and move into wholesale checkout.
+              <p className="mt-3 text-sm leading-6 text-neutral-400 sm:mt-2 sm:max-w-none sm:leading-6">
+                <span className="sm:hidden">Review quantities before checkout.</span>
+                <span className="hidden sm:inline">
+                  Review store quantities, confirm line totals, and move into wholesale checkout.
+                </span>
               </p>
             </div>
             {items.length > 0 ? (

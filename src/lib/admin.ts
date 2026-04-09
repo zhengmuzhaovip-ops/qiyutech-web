@@ -95,6 +95,7 @@ type RawAdminUser = {
   company?: string;
   businessType?: string;
   role?: string;
+  hasCustomPricing?: boolean;
   isActive?: boolean;
   address?: {
     street?: string;
@@ -183,6 +184,19 @@ type AdminCatalogBootstrapResponse = {
   message: string;
 };
 
+type AdminImageUploadResponse = {
+  success: true;
+  url: string;
+  publicId: string;
+  width: number;
+  height: number;
+};
+
+type AdminImageDeleteResponse = {
+  success: true;
+  message: string;
+};
+
 export type AdminDashboard = AdminDashboardResponse['stats'];
 
 export type AdminOrder = {
@@ -223,9 +237,27 @@ export type AdminUser = {
   company: string;
   businessType: string;
   role: string;
+  hasCustomPricing: boolean;
   isActive: boolean;
   addressLine: string;
   createdAt: string;
+};
+
+export type AdminUserPricingUser = {
+  id: string;
+  name: string;
+  email: string;
+  company: string;
+};
+
+export type AdminUserPricingItem = {
+  productId: string;
+  productName: string;
+  shortName: string;
+  flavor: string;
+  seriesTitle: string;
+  basePrice: number;
+  customPrice: number | null;
 };
 
 export type AdminProductSpec = {
@@ -308,6 +340,19 @@ export type AdminProductPayload = {
   tags: string[];
   isActive: boolean;
   isFeatured: boolean;
+};
+
+export type AdminUploadedImage = {
+  url: string;
+  publicId: string;
+  width: number;
+  height: number;
+};
+
+type AdminUserPricingResponse = {
+  success: true;
+  user: AdminUserPricingUser;
+  items: AdminUserPricingItem[];
 };
 
 function getFailureMessage(result: { message?: string }, fallback: string) {
@@ -407,6 +452,7 @@ function mapAdminUser(user: RawAdminUser): AdminUser {
     company: user.company || '',
     businessType: user.businessType || '',
     role: user.role || 'user',
+    hasCustomPricing: Boolean(user.hasCustomPricing),
     isActive: Boolean(user.isActive),
     addressLine,
     createdAt: user.createdAt || '',
@@ -511,12 +557,13 @@ export async function fetchAdminOrders(
 
 export async function fetchAdminUsers(
   token: string,
-  filters?: { search?: string; role?: string },
+  filters?: { search?: string; role?: string; hasCustomPricing?: string },
 ): Promise<AdminUser[]> {
   const params = new URLSearchParams();
 
   if (filters?.search) params.set('search', filters.search);
   if (filters?.role) params.set('role', filters.role);
+  if (filters?.hasCustomPricing) params.set('hasCustomPricing', filters.hasCustomPricing);
 
   const queryString = params.toString();
   const result = await authorizedRequest<AdminUsersResponse>(
@@ -534,6 +581,50 @@ export async function deleteAdminUser(token: string, userId: string): Promise<vo
   await authorizedRequest<{ success: true; message: string }>(`/admin/users/${userId}`, token, {
     method: 'DELETE',
   });
+}
+
+export async function fetchAdminUserPricing(
+  token: string,
+  userId: string,
+): Promise<{ user: AdminUserPricingUser; items: AdminUserPricingItem[] }> {
+  const result = await authorizedRequest<AdminUserPricingResponse>(
+    `/admin/users/${userId}/pricing`,
+    token,
+    {
+      method: 'GET',
+    },
+  );
+
+  return {
+    user: result.user,
+    items: result.items,
+  };
+}
+
+export async function updateAdminUserPricing(
+  token: string,
+  userId: string,
+  prices: Array<{ productId: string; price: number | null }>,
+): Promise<void> {
+  await authorizedRequest<{ success: true; message: string }>(`/admin/users/${userId}/pricing`, token, {
+    method: 'PUT',
+    body: JSON.stringify({ prices }),
+  });
+}
+
+export async function updateAdminUserCustomPricing(
+  token: string,
+  userId: string,
+  enabled: boolean,
+): Promise<void> {
+  await authorizedRequest<{ success: true; message: string }>(
+    `/admin/users/${userId}/custom-pricing`,
+    token,
+    {
+      method: 'PUT',
+      body: JSON.stringify({ enabled }),
+    },
+  );
 }
 
 export async function updateAdminOrderStatus(
@@ -669,5 +760,52 @@ export async function deleteAdminProduct(token: string, productId: string): Prom
 export async function bootstrapAdminCatalog(token: string): Promise<AdminCatalogBootstrapResponse> {
   return authorizedRequest<AdminCatalogBootstrapResponse>('/admin/catalog/bootstrap', token, {
     method: 'POST',
+  });
+}
+
+export async function uploadAdminImage(token: string, file: File): Promise<AdminUploadedImage> {
+  const formData = new FormData();
+  formData.append('image', file);
+
+  let response: Response;
+
+  try {
+    response = await fetch(`${API_BASE_URL}/upload/image`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: formData,
+    });
+  } catch {
+    throw new Error('Unable to reach the upload service. Please make sure the local API is running.');
+  }
+
+  let result: AdminImageUploadResponse | ApiFailure;
+
+  try {
+    result = (await response.json()) as AdminImageUploadResponse | ApiFailure;
+  } catch {
+    throw new Error('Image upload failed. The server returned an unexpected response.');
+  }
+
+  if (!response.ok || !(result as { success?: boolean }).success) {
+    throw new Error(getFailureMessage(result as ApiFailure, 'Image upload failed.'));
+  }
+
+  const successResult = result as AdminImageUploadResponse;
+
+  return {
+    url: successResult.url,
+    publicId: successResult.publicId,
+    width: successResult.width,
+    height: successResult.height,
+  };
+}
+
+export async function deleteAdminImage(token: string, publicId: string): Promise<void> {
+  await authorizedRequest<AdminImageDeleteResponse>('/upload/image', token, {
+    method: 'DELETE',
+    body: JSON.stringify({ publicId }),
   });
 }

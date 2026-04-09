@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { useAuth } from '../context/AuthContext';
@@ -46,6 +46,9 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { login } = useAuth();
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window === 'undefined' ? false : window.innerWidth <= 640,
+  );
 
   const from = (location.state as { from?: string } | null)?.from || '/account';
   const fromCheckout = from === '/checkout';
@@ -62,6 +65,19 @@ export default function LoginPage() {
     if (!trimmed) return 'unknown';
     return trimmed.includes('@') ? 'email' : 'phone';
   }, [identifier]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 640);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -162,7 +178,7 @@ export default function LoginPage() {
             maxWidth: 240,
           }}
         >
-          Access trade account
+          {isMobile ? 'Trade access' : 'Access trade account'}
         </h1>
 
         <p

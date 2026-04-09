@@ -2,10 +2,11 @@ import { NavLink, Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
 const adminNavItems = [
-  { label: '概览', to: '/admin' },
-  { label: '订单', to: '/admin/orders' },
-  { label: '商品', to: '/admin/products' },
-  { label: '用户', to: '/admin/users' },
+  { label: '概览', to: '/admin', end: true },
+  { label: '订单', to: '/admin/orders', end: true },
+  { label: '商品', to: '/admin/products', end: true },
+  { label: '用户', to: '/admin/users', end: true },
+  { label: '专属价格', to: '/admin/users/pricing', end: true },
 ];
 
 export default function AdminLayout() {
@@ -50,7 +51,7 @@ export default function AdminLayout() {
               <NavLink
                 key={item.to}
                 to={item.to}
-                end={item.to === '/admin'}
+                end={item.end}
                 className={({ isActive }) =>
                   `flex min-w-fit items-center gap-3 rounded-2xl border px-4 py-3 text-sm transition xl:w-full ${
                     isActive

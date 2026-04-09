@@ -22,6 +22,8 @@ export type PublicProduct = {
   shortName: string;
   flavor: string;
   price: number;
+  basePrice: number;
+  hasCustomPrice: boolean;
   stock: number;
   image: string;
   gallery: string[];
@@ -47,8 +49,14 @@ export type PublicSeries = {
   products: PublicProduct[];
 };
 
-async function request<T>(path: string): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`);
+async function request<T>(path: string, token?: string | null): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    headers: token
+      ? {
+          Authorization: `Bearer ${token}`,
+        }
+      : undefined,
+  });
   const result = await response.json();
 
   if (!response.ok || result?.success === false) {
@@ -58,12 +66,12 @@ async function request<T>(path: string): Promise<T> {
   return result as T;
 }
 
-export async function fetchPublicCatalog(): Promise<PublicSeries[]> {
-  const result = await request<PublicCatalogResponse>('/products/catalog');
+export async function fetchPublicCatalog(token?: string | null): Promise<PublicSeries[]> {
+  const result = await request<PublicCatalogResponse>('/products/catalog', token);
   return result.series || [];
 }
 
-export async function fetchPublicProductBySlug(slug: string): Promise<PublicProduct> {
-  const result = await request<PublicProductResponse>(`/products/slug/${slug}`);
+export async function fetchPublicProductBySlug(slug: string, token?: string | null): Promise<PublicProduct> {
+  const result = await request<PublicProductResponse>(`/products/slug/${slug}`, token);
   return result.product;
 }

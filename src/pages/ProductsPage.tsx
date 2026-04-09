@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Button, ButtonLink } from '../components/ui/Button'
+import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
 import { wholesaleProducts } from '../data/wholesaleProducts'
 import { fetchPublicCatalog, type PublicProduct, type PublicSeries } from '../lib/catalog'
@@ -49,6 +50,8 @@ function buildFallbackSeries(): PublicSeries[] {
       productCount: wholesaleProducts.length,
       products: wholesaleProducts.map((product, index) => ({
         ...product,
+        basePrice: product.price,
+        hasCustomPrice: false,
         seriesId: 'fallback-geek-bar-pulse-x-series',
         seriesTitle: 'GEEK BAR PULSE X Series',
         seriesEyebrow: 'Wholesale Series',
@@ -68,6 +71,8 @@ function CatalogProductCard({
   onAdd: (product: PublicProduct) => void
 }) {
   const isOutOfStock = product.stock <= 0
+  const pricingLabel = product.hasCustomPrice ? 'Your Price' : 'Price'
+  const showBasePrice = product.hasCustomPrice && product.basePrice > product.price
 
   return (
     <article
@@ -223,8 +228,9 @@ function CatalogProductCard({
                 borderRadius: 18,
                 border: '1px solid rgba(255,255,255,0.06)',
                 background: 'rgba(255,255,255,0.02)',
-                minWidth: isMobile ? 84 : 100,
+                minWidth: isMobile ? 92 : 110,
                 textAlign: 'right',
+                flexShrink: 0,
               }}
             >
               <p
@@ -235,9 +241,10 @@ function CatalogProductCard({
                   fontSize: isMobile ? 10 : 11,
                   letterSpacing: 0.4,
                   textTransform: 'uppercase',
+                  whiteSpace: 'nowrap',
                 }}
               >
-                Price
+                {pricingLabel}
               </p>
               <div
                 style={{
@@ -249,6 +256,19 @@ function CatalogProductCard({
               >
                 ${product.price.toFixed(2)}
               </div>
+              {showBasePrice ? (
+                <div
+                  style={{
+                    marginTop: 6,
+                    color: '#7d7d7d',
+                    fontSize: isMobile ? 10 : 11,
+                    whiteSpace: 'nowrap',
+                    textDecoration: 'line-through',
+                  }}
+                >
+                  ${product.basePrice.toFixed(2)}
+                </div>
+              ) : null}
             </div>
           </div>
 
@@ -296,6 +316,7 @@ function CatalogProductCard({
 }
 
 export default function ProductsPage() {
+  const { token } = useAuth()
   const { addToCart } = useCart()
   const fallbackSeries = useMemo(() => buildFallbackSeries(), [])
   const [catalogSeries, setCatalogSeries] = useState<PublicSeries[]>(fallbackSeries)
@@ -306,7 +327,7 @@ export default function ProductsPage() {
   useEffect(() => {
     let active = true
 
-    fetchPublicCatalog()
+    fetchPublicCatalog(token)
       .then((series) => {
         if (active && series.length) {
           setCatalogSeries(series)
@@ -319,7 +340,7 @@ export default function ProductsPage() {
     return () => {
       active = false
     }
-  }, [])
+  }, [token])
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -348,6 +369,7 @@ export default function ProductsPage() {
         name: product.shortName,
         tagline: product.flavor,
         price: product.price,
+        compareAtPrice: product.hasCustomPrice ? product.basePrice : undefined,
         shortDescription: product.shortDescription,
         description: product.description,
         image: product.image,

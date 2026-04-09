@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -14,6 +14,12 @@ import {
   type AdminUser,
 } from '../lib/admin';
 
+type DateGroup<T> = {
+  dateKey: string;
+  label: string;
+  items: T[];
+};
+
 export default function AdminDashboardPage() {
   const { token } = useAuth();
   const [dashboard, setDashboard] = useState<AdminDashboard | null>(null);
@@ -23,6 +29,8 @@ export default function AdminDashboardPage() {
   const [seriesList, setSeriesList] = useState<AdminProductSeries[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [expandedOrderGroup, setExpandedOrderGroup] = useState<string | null>(null);
+  const [expandedUserGroup, setExpandedUserGroup] = useState<string | null>(null);
 
   useEffect(() => {
     if (!token) return;
@@ -39,11 +47,17 @@ export default function AdminDashboardPage() {
     ])
       .then(([stats, nextOrders, nextUsers, nextSeries, nextProducts]) => {
         if (!active) return;
+
+        const nextOrderGroups = groupOrdersByDate(nextOrders);
+        const nextUserGroups = groupUsersByDate(nextUsers);
+
         setDashboard(stats);
-        setOrders(nextOrders.slice(0, 4));
-        setUsers(nextUsers.slice(0, 4));
+        setOrders(nextOrders);
+        setUsers(nextUsers);
         setSeriesList(nextSeries);
         setProducts(nextProducts);
+        setExpandedOrderGroup(nextOrderGroups[0]?.dateKey ?? null);
+        setExpandedUserGroup(nextUserGroups[0]?.dateKey ?? null);
         setError('');
       })
       .catch((loadError) => {
@@ -98,6 +112,9 @@ export default function AdminDashboardPage() {
     };
   }, [products]);
 
+  const recentOrderGroups = useMemo(() => groupOrdersByDate(orders).slice(0, 3), [orders]);
+  const recentUserGroups = useMemo(() => groupUsersByDate(users).slice(0, 3), [users]);
+
   return (
     <div className="space-y-6">
       <section className="rounded-[2rem] border border-white/10 bg-[linear-gradient(135deg,rgba(16,185,129,0.12),rgba(255,255,255,0.03))] px-5 py-6 sm:px-7 sm:py-8">
@@ -144,25 +161,47 @@ export default function AdminDashboardPage() {
           <div className="mt-5 space-y-3">
             {isLoading ? (
               <PanelHint>正在加载订单...</PanelHint>
-            ) : orders.length === 0 ? (
+            ) : recentOrderGroups.length === 0 ? (
               <PanelHint>当前还没有订单。</PanelHint>
             ) : (
-              orders.map((order) => (
-                <div
-                  key={order.id}
-                  className="rounded-[1.2rem] border border-white/10 bg-white/[0.02] px-4 py-4"
+              recentOrderGroups.map((group) => (
+                <DateAccordion
+                  key={group.dateKey}
+                  label={group.label}
+                  countLabel={`${group.items.length} 笔订单`}
+                  expanded={expandedOrderGroup === group.dateKey}
+                  onToggle={() =>
+                    setExpandedOrderGroup((current) =>
+                      current === group.dateKey ? null : group.dateKey,
+                    )
+                  }
                 >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="min-w-0">
-                      <p className="truncate text-base font-medium text-white">{order.orderNumber}</p>
-                      <p className="mt-1 truncate text-sm text-neutral-400">{order.customer}</p>
-                    </div>
-                    <p className="text-base font-medium text-white">${order.total.toFixed(2)}</p>
+                  <div className="space-y-2">
+                    {group.items.map((order) => (
+                      <div
+                        key={order.id}
+                        className="rounded-[1rem] border border-white/10 bg-black/40 px-3 py-3"
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium text-white">
+                              {order.orderNumber}
+                            </p>
+                            <p className="mt-1 truncate text-sm text-neutral-400">
+                              {order.customer}
+                            </p>
+                          </div>
+                          <p className="text-sm font-medium text-white">
+                            ${order.total.toFixed(2)}
+                          </p>
+                        </div>
+                        <p className="mt-2 text-xs uppercase tracking-[0.2em] text-neutral-500">
+                          {formatStatus(order.status)} / {formatPaymentStatus(order.paymentStatus)}
+                        </p>
+                      </div>
+                    ))}
                   </div>
-                  <p className="mt-3 text-xs uppercase tracking-[0.2em] text-neutral-500">
-                    {formatStatus(order.status)} / {formatPaymentStatus(order.paymentStatus)}
-                  </p>
-                </div>
+                </DateAccordion>
               ))
             )}
           </div>
@@ -185,29 +224,45 @@ export default function AdminDashboardPage() {
           <div className="mt-5 space-y-3">
             {isLoading ? (
               <PanelHint>正在加载用户...</PanelHint>
-            ) : users.length === 0 ? (
+            ) : recentUserGroups.length === 0 ? (
               <PanelHint>当前还没有用户。</PanelHint>
             ) : (
-              users.map((user) => (
-                <div
-                  key={user.id}
-                  className="rounded-[1.2rem] border border-white/10 bg-white/[0.02] px-4 py-4"
+              recentUserGroups.map((group) => (
+                <DateAccordion
+                  key={group.dateKey}
+                  label={group.label}
+                  countLabel={`${group.items.length} 位用户`}
+                  expanded={expandedUserGroup === group.dateKey}
+                  onToggle={() =>
+                    setExpandedUserGroup((current) =>
+                      current === group.dateKey ? null : group.dateKey,
+                    )
+                  }
                 >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="min-w-0">
-                      <p className="truncate text-base font-medium text-white">{user.name}</p>
-                      <p className="mt-1 truncate text-sm text-neutral-400">
-                        {user.email || user.phone || '暂无联系方式'}
-                      </p>
-                    </div>
-                    <p className="text-xs uppercase tracking-[0.2em] text-neutral-500">
-                      {user.role === 'admin' ? '管理员' : '用户'}
-                    </p>
+                  <div className="space-y-2">
+                    {group.items.map((user) => (
+                      <div
+                        key={user.id}
+                        className="rounded-[1rem] border border-white/10 bg-black/40 px-3 py-3"
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium text-white">{user.name}</p>
+                            <p className="mt-1 truncate text-sm text-neutral-400">
+                              {user.email || user.phone || '暂无联系方式'}
+                            </p>
+                          </div>
+                          <p className="text-xs uppercase tracking-[0.2em] text-neutral-500">
+                            {user.role === 'admin' ? '管理员' : '用户'}
+                          </p>
+                        </div>
+                        <p className="mt-2 truncate text-sm text-neutral-500">
+                          {user.company || '暂无公司信息'}
+                        </p>
+                      </div>
+                    ))}
                   </div>
-                  <p className="mt-3 truncate text-sm text-neutral-500">
-                    {user.company || '暂无公司信息'}
-                  </p>
-                </div>
+                </DateAccordion>
               ))
             )}
           </div>
@@ -260,15 +315,21 @@ export default function AdminDashboardPage() {
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
-                    <p className="text-[11px] uppercase tracking-[0.22em] text-neutral-500">{series.eyebrow}</p>
-                    <h4 className="mt-2 truncate text-lg font-semibold text-white">{series.title}</h4>
+                    <p className="text-[11px] uppercase tracking-[0.22em] text-neutral-500">
+                      {series.eyebrow}
+                    </p>
+                    <h4 className="mt-2 truncate text-lg font-semibold text-white">
+                      {series.title}
+                    </h4>
                     {series.description ? (
-                      <p className="mt-2 line-clamp-2 text-sm text-neutral-400">{series.description}</p>
+                      <p className="mt-2 line-clamp-2 text-sm text-neutral-400">
+                        {series.description}
+                      </p>
                     ) : null}
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <StockPill tone={series.isActive ? 'ok' : 'neutral'}>
-                      {series.isActive ? '启用中' : '已隐藏'}
+                      {series.isActive ? '已上架' : '已隐藏'}
                     </StockPill>
                     <StockPill tone="neutral">{`${series.products.length} 个商品`}</StockPill>
                   </div>
@@ -312,6 +373,38 @@ export default function AdminDashboardPage() {
   );
 }
 
+function DateAccordion({
+  label,
+  countLabel,
+  expanded,
+  onToggle,
+  children,
+}: {
+  label: string;
+  countLabel: string;
+  expanded: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div className="overflow-hidden rounded-[1.2rem] border border-white/10 bg-white/[0.02]">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full items-center justify-between gap-4 px-4 py-4 text-left"
+      >
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-white">{label}</p>
+          <p className="mt-1 text-xs uppercase tracking-[0.2em] text-neutral-500">{countLabel}</p>
+        </div>
+        <span className="text-sm text-neutral-400">{expanded ? '-' : '+'}</span>
+      </button>
+
+      {expanded ? <div className="border-t border-white/10 px-4 py-3">{children}</div> : null}
+    </div>
+  );
+}
+
 function PanelHint({ children }: { children: string }) {
   return (
     <div className="rounded-[1.2rem] border border-dashed border-white/10 bg-black/50 px-4 py-5 text-sm text-neutral-400">
@@ -344,7 +437,13 @@ function CompactMetric({
   );
 }
 
-function StockPill({ children, tone }: { children: string; tone: 'ok' | 'low' | 'out' | 'neutral' }) {
+function StockPill({
+  children,
+  tone,
+}: {
+  children: string;
+  tone: 'ok' | 'low' | 'out' | 'neutral';
+}) {
   const tones = {
     ok: 'border-emerald-400/20 bg-emerald-500/10 text-emerald-200',
     low: 'border-amber-400/20 bg-amber-500/10 text-amber-200',
@@ -357,6 +456,51 @@ function StockPill({ children, tone }: { children: string; tone: 'ok' | 'low' | 
       {children}
     </span>
   );
+}
+
+function groupOrdersByDate(orders: AdminOrder[]): Array<DateGroup<AdminOrder>> {
+  return groupByDate(orders, (order) => order.createdAt);
+}
+
+function groupUsersByDate(users: AdminUser[]): Array<DateGroup<AdminUser>> {
+  return groupByDate(users, (user) => user.createdAt);
+}
+
+function groupByDate<T>(items: T[], getDate: (item: T) => string): Array<DateGroup<T>> {
+  const groups = new Map<string, DateGroup<T>>();
+
+  items.forEach((item) => {
+    const date = new Date(getDate(item));
+    const dateKey = getLocalDateKey(date);
+
+    if (!groups.has(dateKey)) {
+      groups.set(dateKey, {
+        dateKey,
+        label: formatDateGroupLabel(date),
+        items: [],
+      });
+    }
+
+    groups.get(dateKey)?.items.push(item);
+  });
+
+  return Array.from(groups.values()).sort((left, right) => right.dateKey.localeCompare(left.dateKey));
+}
+
+function getLocalDateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function formatDateGroupLabel(date: Date) {
+  return date.toLocaleDateString('zh-CN', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    weekday: 'short',
+  });
 }
 
 function getStockTone(stock: number): 'ok' | 'low' | 'out' {

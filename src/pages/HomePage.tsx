@@ -53,22 +53,17 @@ const retailPartnerCards = [
 const AGE_GATE_STORAGE_KEY = 'qiyutech-age-verified'
 
 export default function HomePage() {
-  const [isVerified, setIsVerified] = useState(false)
+  const [isVerified, setIsVerified] = useState(() => {
+    if (typeof window === 'undefined') {
+      return false
+    }
+
+    return window.localStorage.getItem(AGE_GATE_STORAGE_KEY) === 'true'
+  })
   const [isDenied, setIsDenied] = useState(false)
   const [viewportWidth, setViewportWidth] = useState(() =>
     typeof window === 'undefined' ? 1440 : window.innerWidth,
   )
-
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return
-    }
-
-    const stored = window.localStorage.getItem(AGE_GATE_STORAGE_KEY)
-    if (stored === 'true') {
-      setIsVerified(true)
-    }
-  }, [])
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -480,10 +475,11 @@ export default function HomePage() {
                   <p
                     style={{
                       margin: 0,
-                      color: '#989898',
+                      color: '#56e3a6',
                       fontSize: 11,
                       letterSpacing: 1.4,
                       textTransform: 'uppercase',
+                      textShadow: '0 0 18px rgba(56,211,159,0.18)',
                     }}
                   >
                     Featured wholesale product
@@ -520,32 +516,20 @@ export default function HomePage() {
                   <div
                     style={{
                       display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'end',
-                      gap: 12,
+                      alignItems: 'flex-start',
                       marginTop: 10,
                     }}
                   >
                     <p
                       style={{
                         margin: 0,
-                        color: '#a8a8a8',
-                        fontSize: 10.5,
-                        letterSpacing: 1,
-                        textTransform: 'uppercase',
+                        color: '#d8d8d8',
+                        fontSize: 12.5,
+                        lineHeight: 1.5,
+                        fontWeight: 500,
                       }}
                     >
-                      Wholesale Price
-                    </p>
-                    <p
-                      style={{
-                        margin: 0,
-                        fontSize: 18,
-                        lineHeight: 1,
-                        fontWeight: 700,
-                      }}
-                    >
-                      $14.99
+                      Browse the full series from View Wholesale Catalog.
                     </p>
                   </div>
                 </div>
@@ -828,7 +812,15 @@ export default function HomePage() {
                 >
                   Featured Wholesale Series
                 </p>
-                <h2 style={{ margin: 0, fontSize: 34, lineHeight: 0.98 }}>
+                <h2
+                  style={{
+                    margin: 0,
+                    fontSize: 20,
+                    lineHeight: 1.04,
+                    whiteSpace: 'nowrap',
+                    letterSpacing: -1,
+                  }}
+                >
                   GEEK BAR PULSE X Series
                 </h2>
                 <p
@@ -1083,15 +1075,16 @@ export default function HomePage() {
                     padding: isMobile ? '8px 11px' : '10px 14px',
                     borderRadius: 999,
                     border: '1px solid rgba(255,255,255,0.06)',
-                    background: 'rgba(8,8,8,0.28)',
-                    backdropFilter: 'blur(8px)',
-                    fontSize: isMobile ? 10 : 11,
-                    letterSpacing: 1.4,
-                    textTransform: 'uppercase',
-                    color: '#dfdfdf',
-                    zIndex: 2,
-                  }}
-                >
+                  background: 'rgba(8,8,8,0.28)',
+                  backdropFilter: 'blur(8px)',
+                  fontSize: isMobile ? 10 : 11,
+                  letterSpacing: 1.4,
+                  textTransform: 'uppercase',
+                  color: '#56e3a6',
+                  boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04), 0 0 20px rgba(56,211,159,0.08)',
+                  zIndex: 2,
+                }}
+              >
                   Featured Wholesale Product
                 </div>
 
@@ -1131,10 +1124,7 @@ export default function HomePage() {
                   <div
                     style={{
                       display: 'flex',
-                      flexDirection: isMobile ? 'column' : 'row',
-                      justifyContent: 'space-between',
-                      alignItems: isMobile ? 'flex-start' : 'flex-end',
-                      gap: 16,
+                      alignItems: 'flex-start',
                       paddingBottom: 14,
                       borderBottom: '1px solid rgba(255,255,255,0.08)',
                     }}
@@ -1155,32 +1145,13 @@ export default function HomePage() {
                       <h3
                         style={{
                           margin: 0,
-                          maxWidth: 380,
+                          maxWidth: 540,
                           fontSize: isMobile ? 22 : 28,
                           lineHeight: 1.1,
                         }}
                       >
                         Premium shelf presence for repeat store replenishment.
                       </h3>
-                    </div>
-
-                    <div
-                      style={{
-                        textAlign: 'right',
-                        minWidth: isMobile ? 'auto' : 120,
-                      }}
-                    >
-                      <p style={{ margin: 0, color: '#8f8f8f', fontSize: 12 }}>Wholesale Price</p>
-                      <p
-                        style={{
-                          margin: 0,
-                          marginTop: 8,
-                          fontSize: isMobile ? 24 : 28,
-                          fontWeight: 700,
-                        }}
-                      >
-                        $14.99
-                      </p>
                     </div>
                   </div>
 
@@ -1195,6 +1166,18 @@ export default function HomePage() {
                   >
                     Designed for retail accounts that expect presentation quality, stable movement,
                     and disciplined reorder flow.
+                  </p>
+
+                  <p
+                    style={{
+                      margin: 0,
+                      color: '#e7e7e7',
+                      fontSize: isMobile ? 12.5 : 13,
+                      lineHeight: 1.5,
+                      fontWeight: 500,
+                    }}
+                  >
+                    Browse the full series from View Wholesale Catalog.
                   </p>
 
                   <div
@@ -1839,7 +1822,16 @@ export default function HomePage() {
                 >
                   Featured Wholesale Series
                 </p>
-                <h2 style={{ margin: 0, fontSize: isMobile ? 30 : 36, lineHeight: isMobile ? 1 : 1.06, maxWidth: 820 }}>
+                <h2
+                  style={{
+                    margin: 0,
+                    fontSize: isMobile ? 20 : 36,
+                    lineHeight: isMobile ? 1.04 : 1.06,
+                    maxWidth: 820,
+                    whiteSpace: isMobile ? 'nowrap' : 'normal',
+                    letterSpacing: isMobile ? -1 : 0,
+                  }}
+                >
                   GEEK BAR PULSE X Series
                 </h2>
                 <p

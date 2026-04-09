@@ -169,3 +169,42 @@ export async function updateTradeProfile(
 
   return mapAuthUser(result.user);
 }
+
+export async function lookupUsPostalCode(
+  token: string,
+  zipCode: string,
+): Promise<{ zipCode: string; city: string; state: string }> {
+  let response: Response;
+
+  try {
+    response = await fetch(
+      `${API_BASE_URL}/auth/us-postal-lookup?zipCode=${encodeURIComponent(zipCode)}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      },
+    );
+  } catch {
+    throw new Error('Unable to reach the server. Please make sure the local API is running.');
+  }
+
+  const result = (await response.json()) as
+    | {
+        success: true;
+        lookup: {
+          zipCode: string;
+          city: string;
+          state: string;
+        };
+      }
+    | AuthFailureResponse;
+
+  if (!response.ok || !result.success) {
+    throw new Error(
+      getFailureMessage(result as { message?: string }, 'Unable to validate this ZIP code.'),
+    );
+  }
+
+  return result.lookup;
+}

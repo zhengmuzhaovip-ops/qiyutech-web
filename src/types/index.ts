@@ -29,8 +29,8 @@ export interface SiteSettings {
   heroSecondaryCtaLabel: string;
   heroSecondaryCtaHref: string;
   phone: string;
-  whatsapp: string;
-  whatsappUrl: string;
+  phoneUs: string;
+  phoneChina: string;
   email: string;
   address: string;
   footerCopyright: string;

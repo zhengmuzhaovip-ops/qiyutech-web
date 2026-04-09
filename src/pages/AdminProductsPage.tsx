@@ -1,14 +1,17 @@
 ﻿import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Button } from '../components/ui/Button';
+import type { ChangeEvent } from 'react';
 import { useAuth } from '../context/AuthContext';
 import {
   bootstrapAdminCatalog,
   createAdminProduct,
+  deleteAdminImage,
   createAdminProductSeries,
   deleteAdminProduct,
   deleteAdminProductSeries,
   fetchAdminProducts,
   fetchAdminProductSeries,
+  uploadAdminImage,
   updateAdminProduct,
   updateAdminProductSeries,
   type AdminProduct,
@@ -17,6 +20,15 @@ import {
   type AdminProductSeriesPayload,
   type AdminProductSpec,
 } from '../lib/admin';
+
+type UploadTarget = 'main' | 0 | 1 | 2;
+type UploadStateKey = 'main' | 'detail-0' | 'detail-1' | 'detail-2';
+
+type UploadedTargetState = {
+  publicId: string;
+  previousValue: string;
+  currentUrl: string;
+};
 
 const FIXED_CARD_EYEBROW = 'Wholesale Item';
 const FIXED_FRONTEND_TAGS = ['Wholesale pricing', 'Shelf-ready'];
@@ -91,6 +103,10 @@ export default function AdminProductsPage() {
   const [expandedSeriesId, setExpandedSeriesId] = useState<string | null>(null);
   const [activeProductSeriesId, setActiveProductSeriesId] = useState<string | null>(null);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
+  const [uploadingImageTarget, setUploadingImageTarget] = useState<string | null>(null);
+  const [uploadedImageState, setUploadedImageState] = useState<
+    Partial<Record<UploadStateKey, UploadedTargetState>>
+  >({});
   const [seriesForm, setSeriesForm] = useState<AdminProductSeriesPayload>(emptySeriesForm);
   const [newSeriesForm, setNewSeriesForm] = useState<AdminProductSeriesPayload>(emptySeriesForm);
   const [form, setForm] = useState<AdminProductPayload>(emptyProductForm);
@@ -203,6 +219,7 @@ export default function AdminProductsPage() {
     setGalleryInput('');
     setHighlightsInput('');
     setSpecsInput('');
+    setUploadedImageState({});
   }
 
   function openSeries(series: AdminProductSeries) {
@@ -415,6 +432,87 @@ export default function AdminProductsPage() {
       setError(saveError instanceof Error ? saveError.message : '无法保存商品。');
     } finally {
       setIsSavingProduct(false);
+    }
+  }
+
+  async function handleImageUpload(event: ChangeEvent<HTMLInputElement>, target: UploadTarget) {
+    if (!token) return;
+
+    const file = event.target.files?.[0];
+    event.target.value = '';
+
+    if (!file) {
+      return;
+    }
+
+    const uploadKey: UploadStateKey = target === 'main' ? 'main' : `detail-${target}`;
+
+    try {
+      setUploadingImageTarget(uploadKey);
+      setError('');
+      const previousValue =
+        target === 'main' ? form.image.trim() : (gallery[target] || '').trim();
+      const previousUploadState = uploadedImageState[uploadKey];
+      const uploadedImage = await uploadAdminImage(token, file);
+
+      if (previousUploadState) {
+        await deleteAdminImage(token, previousUploadState.publicId);
+      }
+
+      setUploadedImageState((current) => ({
+        ...current,
+        [uploadKey]: {
+          publicId: uploadedImage.publicId,
+          previousValue: previousUploadState?.previousValue ?? previousValue,
+          currentUrl: uploadedImage.url,
+        },
+      }));
+
+      if (target === 'main') {
+        setForm((current) => ({ ...current, image: uploadedImage.url }));
+        return;
+      }
+
+      setGalleryInput((current) => updateGalleryLine(current, target, uploadedImage.url));
+    } catch (uploadError) {
+      setError(uploadError instanceof Error ? uploadError.message : '图片上传失败。');
+    } finally {
+      setUploadingImageTarget(null);
+    }
+  }
+
+  async function handleUndoUploadedImage(target: UploadTarget) {
+    if (!token) return;
+
+    const uploadKey: UploadStateKey = target === 'main' ? 'main' : `detail-${target}`;
+    const currentUploadState = uploadedImageState[uploadKey];
+
+    if (!currentUploadState) {
+      return;
+    }
+
+    try {
+      setUploadingImageTarget(uploadKey);
+      setError('');
+      await deleteAdminImage(token, currentUploadState.publicId);
+
+      if (target === 'main') {
+        setForm((current) => ({ ...current, image: currentUploadState.previousValue }));
+      } else {
+        setGalleryInput((current) =>
+          updateGalleryLine(current, target, currentUploadState.previousValue),
+        );
+      }
+
+      setUploadedImageState((current) => {
+        const nextState = { ...current };
+        delete nextState[uploadKey];
+        return nextState;
+      });
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : '无法删除刚上传的图片。');
+    } finally {
+      setUploadingImageTarget(null);
     }
   }
 
@@ -695,7 +793,24 @@ export default function AdminProductsPage() {
                         <input value={form.badge} onChange={(event) => setForm((current) => ({ ...current, badge: event.target.value }))} className="h-11 rounded-[1rem] border border-white/10 bg-black px-4 text-sm text-white outline-none" />
                       </Field>
                       <Field label="主卡图片">
-                        <input value={form.image} onChange={(event) => setForm((current) => ({ ...current, image: event.target.value }))} className="h-11 rounded-[1rem] border border-white/10 bg-black px-4 text-sm text-white outline-none" />
+                        <div className="space-y-3">
+                          <input value={form.image} onChange={(event) => setForm((current) => ({ ...current, image: event.target.value }))} className="h-11 rounded-[1rem] border border-white/10 bg-black px-4 text-sm text-white outline-none" />
+                          <ImageUploadControl
+                            label={uploadingImageTarget === 'main' ? '上传主图中...' : '上传主图'}
+                            onChange={(event) => void handleImageUpload(event, 'main')}
+                            disabled={uploadingImageTarget !== null}
+                          />
+                          {uploadedImageState.main ? (
+                            <button
+                              type="button"
+                              onClick={() => void handleUndoUploadedImage('main')}
+                              disabled={uploadingImageTarget !== null}
+                              className="inline-flex items-center justify-center rounded-full border border-red-400/20 bg-red-500/10 px-4 py-2 text-xs font-medium normal-case tracking-normal text-red-200 transition hover:border-red-400/40 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              删除刚上传的主图并恢复原地址
+                            </button>
+                          ) : null}
+                        </div>
                       </Field>
                       <Field label="卡片简短描述">
                         <textarea value={form.shortDescription} onChange={(event) => setForm((current) => ({ ...current, shortDescription: event.target.value }))} rows={4} className="rounded-[1rem] border border-white/10 bg-black px-4 py-3 text-sm text-white outline-none" />
@@ -731,13 +846,64 @@ export default function AdminProductsPage() {
               <div className="space-y-4">
                 <div className="grid gap-3">
                   <Field label="详情图 1（默认大图）">
-                    <input value={gallery[0] || ''} onChange={(event) => setGalleryInput(updateGalleryLine(galleryInput, 0, event.target.value))} className="h-11 rounded-[1rem] border border-white/10 bg-black px-4 text-sm text-white outline-none" />
+                    <div className="space-y-3">
+                      <input value={gallery[0] || ''} onChange={(event) => setGalleryInput(updateGalleryLine(galleryInput, 0, event.target.value))} className="h-11 rounded-[1rem] border border-white/10 bg-black px-4 text-sm text-white outline-none" />
+                      <ImageUploadControl
+                        label={uploadingImageTarget === 'detail-0' ? '上传详情图 1 中...' : '上传详情图 1'}
+                        onChange={(event) => void handleImageUpload(event, 0)}
+                        disabled={uploadingImageTarget !== null}
+                      />
+                      {uploadedImageState['detail-0'] ? (
+                        <button
+                          type="button"
+                          onClick={() => void handleUndoUploadedImage(0)}
+                          disabled={uploadingImageTarget !== null}
+                          className="inline-flex items-center justify-center rounded-full border border-red-400/20 bg-red-500/10 px-4 py-2 text-xs font-medium normal-case tracking-normal text-red-200 transition hover:border-red-400/40 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          删除刚上传的详情图 1 并恢复原地址
+                        </button>
+                      ) : null}
+                    </div>
                   </Field>
                   <Field label="详情图 2">
-                    <input value={gallery[1] || ''} onChange={(event) => setGalleryInput(updateGalleryLine(galleryInput, 1, event.target.value))} className="h-11 rounded-[1rem] border border-white/10 bg-black px-4 text-sm text-white outline-none" />
+                    <div className="space-y-3">
+                      <input value={gallery[1] || ''} onChange={(event) => setGalleryInput(updateGalleryLine(galleryInput, 1, event.target.value))} className="h-11 rounded-[1rem] border border-white/10 bg-black px-4 text-sm text-white outline-none" />
+                      <ImageUploadControl
+                        label={uploadingImageTarget === 'detail-1' ? '上传详情图 2 中...' : '上传详情图 2'}
+                        onChange={(event) => void handleImageUpload(event, 1)}
+                        disabled={uploadingImageTarget !== null}
+                      />
+                      {uploadedImageState['detail-1'] ? (
+                        <button
+                          type="button"
+                          onClick={() => void handleUndoUploadedImage(1)}
+                          disabled={uploadingImageTarget !== null}
+                          className="inline-flex items-center justify-center rounded-full border border-red-400/20 bg-red-500/10 px-4 py-2 text-xs font-medium normal-case tracking-normal text-red-200 transition hover:border-red-400/40 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          删除刚上传的详情图 2 并恢复原地址
+                        </button>
+                      ) : null}
+                    </div>
                   </Field>
                   <Field label="详情图 3">
-                    <input value={gallery[2] || ''} onChange={(event) => setGalleryInput(updateGalleryLine(galleryInput, 2, event.target.value))} className="h-11 rounded-[1rem] border border-white/10 bg-black px-4 text-sm text-white outline-none" />
+                    <div className="space-y-3">
+                      <input value={gallery[2] || ''} onChange={(event) => setGalleryInput(updateGalleryLine(galleryInput, 2, event.target.value))} className="h-11 rounded-[1rem] border border-white/10 bg-black px-4 text-sm text-white outline-none" />
+                      <ImageUploadControl
+                        label={uploadingImageTarget === 'detail-2' ? '上传详情图 3 中...' : '上传详情图 3'}
+                        onChange={(event) => void handleImageUpload(event, 2)}
+                        disabled={uploadingImageTarget !== null}
+                      />
+                      {uploadedImageState['detail-2'] ? (
+                        <button
+                          type="button"
+                          onClick={() => void handleUndoUploadedImage(2)}
+                          disabled={uploadingImageTarget !== null}
+                          className="inline-flex items-center justify-center rounded-full border border-red-400/20 bg-red-500/10 px-4 py-2 text-xs font-medium normal-case tracking-normal text-red-200 transition hover:border-red-400/40 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          删除刚上传的详情图 3 并恢复原地址
+                        </button>
+                      ) : null}
+                    </div>
                   </Field>
                 </div>
               </div>
@@ -1343,6 +1509,40 @@ function PanelHint({ children }: { children: string }) {
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return <label className="flex min-w-0 flex-col gap-2 text-xs uppercase tracking-[0.18em] text-neutral-500">{label}{children}</label>;
+}
+
+function ImageUploadControl({
+  label,
+  onChange,
+  disabled,
+}: {
+  label: string;
+  onChange: (event: ChangeEvent<HTMLInputElement>) => void;
+  disabled: boolean;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-3">
+      <label
+        className={`inline-flex cursor-pointer items-center justify-center rounded-full border px-4 py-2 text-xs font-medium normal-case tracking-normal transition ${
+          disabled
+            ? 'cursor-not-allowed border-white/10 bg-white/[0.03] text-neutral-500'
+            : 'border-white/15 bg-white/[0.04] text-white hover:border-white/30'
+        }`}
+      >
+        <input
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          className="hidden"
+          onChange={onChange}
+          disabled={disabled}
+        />
+        {label}
+      </label>
+      <p className="text-[11px] normal-case tracking-normal text-neutral-500">
+        只在你选中文件后回填，不会自动替换当前已填写的图片地址。
+      </p>
+    </div>
+  );
 }
 
 function Pill({ children }: { children: string }) {

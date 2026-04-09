@@ -1,4 +1,5 @@
-import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom';
+import { useEffect } from 'react';
+import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
 import AdminLayout from './components/layout/AdminLayout';
@@ -7,6 +8,7 @@ import AccountPage from './pages/AccountPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import AdminOrdersPage from './pages/AdminOrdersPage';
 import AdminProductsPage from './pages/AdminProductsPage';
+import AdminUserPricingPage from './pages/AdminUserPricingPage';
 import AdminUsersPage from './pages/AdminUsersPage';
 import CartPage from './pages/CartPage';
 import CheckoutPage from './pages/CheckoutPage';
@@ -20,6 +22,7 @@ import RegisterPage from './pages/RegisterPage';
 export default function App() {
   return (
     <BrowserRouter>
+      <ScrollToTop />
       <AuthProvider>
         <CartProvider>
           <Routes>
@@ -40,6 +43,7 @@ export default function App() {
               <Route path="orders" element={<AdminOrdersPage />} />
               <Route path="products" element={<AdminProductsPage />} />
               <Route path="users" element={<AdminUsersPage />} />
+              <Route path="users/pricing" element={<AdminUserPricingPage />} />
             </Route>
 
             <Route path="*" element={<Navigate to="/" replace />} />
@@ -48,4 +52,14 @@ export default function App() {
       </AuthProvider>
     </BrowserRouter>
   );
+}
+
+function ScrollToTop() {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, [pathname]);
+
+  return null;
 }

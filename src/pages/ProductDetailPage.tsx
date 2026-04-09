@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useParams } from 'react-router-dom'
 import { Button } from '../components/ui/Button'
+import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
 import { siteSettings } from '../data/site'
-import { getWholesaleProductBySlug, wholesaleProducts } from '../data/wholesaleProducts'
 import { fetchPublicProductBySlug, type PublicProduct } from '../lib/catalog'
 
 const qtyButtonStyle: React.CSSProperties = {
@@ -82,24 +82,14 @@ function MiniBadge({ text, compact = false }: { text: string; compact?: boolean 
 
 export default function ProductDetailPage() {
   const { slug } = useParams()
+  const { token } = useAuth()
   const { addToCart } = useCart()
   const [viewportWidth, setViewportWidth] = useState(() =>
     typeof window === 'undefined' ? 1440 : window.innerWidth,
   )
   const [remoteProduct, setRemoteProduct] = useState<PublicProduct | null>(null)
-
-  const fallbackProduct = useMemo(() => {
-    const currentSlug = (slug || '').toLowerCase()
-    if (currentSlug.includes('mini')) {
-      return wholesaleProducts[1]
-    }
-
-    if (currentSlug.includes('ultra')) {
-      return wholesaleProducts[0]
-    }
-
-    return getWholesaleProductBySlug(currentSlug) ?? wholesaleProducts[0]
-  }, [slug])
+  const [isLoadingProduct, setIsLoadingProduct] = useState(true)
+  const [productNotFound, setProductNotFound] = useState(false)
 
   const [quantity, setQuantity] = useState(1)
   const [activeImage, setActiveImage] = useState<string | null>(null)
@@ -114,27 +104,37 @@ export default function ProductDetailPage() {
     let active = true
 
     setRemoteProduct(null)
+    setProductNotFound(false)
+    setIsLoadingProduct(true)
 
     if (!slug) {
+      setIsLoadingProduct(false)
+      setProductNotFound(true)
       return () => {
         active = false
       }
     }
 
-    fetchPublicProductBySlug(slug)
+    fetchPublicProductBySlug(slug, token)
       .then((product) => {
         if (active) {
           setRemoteProduct(product)
+          setProductNotFound(false)
+          setIsLoadingProduct(false)
         }
       })
       .catch(() => {
-        // Keep static fallback product when the backend detail route is not ready.
+        if (active) {
+          setRemoteProduct(null)
+          setProductNotFound(true)
+          setIsLoadingProduct(false)
+        }
       })
 
     return () => {
       active = false
     }
-  }, [slug])
+  }, [slug, token])
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -149,16 +149,50 @@ export default function ProductDetailPage() {
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
-  const product = remoteProduct ?? fallbackProduct
+  const product = remoteProduct
+
+  if (isLoadingProduct) {
+    return (
+      <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6">
+        <div className="rounded-[2rem] border border-white/10 bg-neutral-950 px-6 py-16 text-center">
+          <p className="text-sm uppercase tracking-[0.24em] text-neutral-500">Product Detail</p>
+          <h1 className="mt-4 text-3xl font-semibold text-white">Loading product...</h1>
+        </div>
+      </div>
+    )
+  }
+
+  if (productNotFound || !product) {
+    return (
+      <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6">
+        <div className="rounded-[2rem] border border-white/10 bg-neutral-950 px-6 py-16 text-center">
+          <p className="text-sm uppercase tracking-[0.24em] text-neutral-500">Product Detail</p>
+          <h1 className="mt-4 text-3xl font-semibold text-white">This product is no longer available.</h1>
+          <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-neutral-400">
+            The product link still exists, but the product record has been removed from the live catalog.
+          </p>
+          <Link
+            to="/products"
+            className="mt-8 inline-flex items-center justify-center rounded-full border border-white/15 px-6 py-3 text-sm font-medium text-white transition hover:border-white/35"
+          >
+            Back to Catalog
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
   const normalizedSpecs = (product.specs || [])
     .map((spec) => ({
       label: spec.label || '',
       value: spec.value || '',
     }))
     .filter((spec) => spec.label && spec.value)
-  const currentImage = activeImage || product.image
+  const primaryDetailImage = product.gallery?.[0] || product.image
+  const currentImage = activeImage || primaryDetailImage
   const isMobile = viewportWidth <= 768
   const isOutOfStock = product.stock <= 0
+  const showCustomPrice = Boolean(product.hasCustomPrice && product.basePrice > product.price)
   const phoneHref = `tel:${siteSettings.phone.replace(/[^\d+]/g, '')}`
   const emailHref = `mailto:${siteSettings.email}`
   const modalCopy =
@@ -705,15 +739,48 @@ export default function ProductDetailPage() {
                   >
                     Wholesale Price
                   </p>
+                  {showCustomPrice ? (
+                    <div
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        marginBottom: 10,
+                        padding: isMobile ? '6px 10px' : '7px 12px',
+                        borderRadius: 999,
+                        border: '1px solid rgba(52,211,153,0.18)',
+                        background: 'rgba(16,185,129,0.1)',
+                        color: '#d1fae5',
+                        fontSize: isMobile ? 10 : 11,
+                        letterSpacing: 0.6,
+                        textTransform: 'uppercase',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      Your account price
+                    </div>
+                  ) : null}
                   <div
                     style={{
                       fontSize: isMobile ? 34 : 42,
                       fontWeight: 800,
                       lineHeight: 1,
+                      whiteSpace: 'nowrap',
                     }}
                   >
                     ${product.price.toFixed(2)}
                   </div>
+                  {showCustomPrice ? (
+                    <div
+                      style={{
+                        marginTop: 10,
+                        color: '#7f7f7f',
+                        fontSize: isMobile ? 12 : 13,
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      Standard ${product.basePrice.toFixed(2)}
+                    </div>
+                  ) : null}
                 </div>
 
                 <div
@@ -887,6 +954,7 @@ export default function ProductDetailPage() {
                           name: product.name,
                           tagline: product.flavor,
                           price: product.price,
+                          compareAtPrice: showCustomPrice ? product.basePrice : undefined,
                           shortDescription: product.description,
                           description: product.description,
                           image: product.image,

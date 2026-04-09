@@ -2,6 +2,8 @@ node_modules
 dist
 .env
 .env.*
+.local/
+*.log
 .vercel
 .vite.log
 .vite.err.log

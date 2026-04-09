@@ -1,4 +1,6 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useAuth } from './AuthContext';
+import { fetchPublicCatalog } from '../lib/catalog';
 import type { CartItem, Product } from '../types';
 
 interface AddToCartInput {
@@ -61,12 +63,57 @@ function readStoredCart(): CartItem[] {
 }
 
 export function CartProvider({ children }: { children: ReactNode }) {
+  const { token } = useAuth();
   const [items, setItems] = useState<CartItem[]>(() => readStoredCart());
 
   const persist = (nextItems: CartItem[]) => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(nextItems));
     setItems(nextItems);
   };
+
+  useEffect(() => {
+    if (items.length === 0) {
+      return;
+    }
+
+    let active = true;
+
+    fetchPublicCatalog(token)
+      .then((series) => {
+        if (!active) return;
+
+        const priceMap = new Map(
+          series.flatMap((group) =>
+            group.products.map((product) => [product.id, Number(product.price || 0)]),
+          ),
+        );
+
+        let hasPriceChange = false;
+        const nextItems = items.map((item) => {
+          const nextPrice = priceMap.get(item.productId || '');
+          if (typeof nextPrice !== 'number' || nextPrice === item.price) {
+            return item;
+          }
+
+          hasPriceChange = true;
+          return {
+            ...item,
+            price: nextPrice,
+          };
+        });
+
+        if (hasPriceChange) {
+          persist(nextItems);
+        }
+      })
+      .catch(() => {
+        // Keep the current cart prices when the catalog request is unavailable.
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [items, token]);
 
   const value = useMemo<CartContextValue>(
     () => ({
