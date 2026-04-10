@@ -78,14 +78,13 @@ export default function Header() {
               </a>
               <Link
                 to="/cart"
-                className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-2 text-sm font-medium text-white transition hover:-translate-y-0.5 sm:gap-2 sm:px-4 sm:py-2.5 ${
+                className={`inline-flex min-w-[126px] shrink-0 items-center justify-between gap-2 rounded-full border px-3.5 py-2 text-[12px] font-medium text-white transition hover:-translate-y-0.5 sm:min-w-0 sm:gap-2 sm:px-4 sm:py-2.5 sm:text-sm ${
                   hasCartItems
                     ? 'border-emerald-400/25 bg-emerald-400/[0.06] shadow-[0_0_22px_rgba(52,211,153,0.08)] hover:border-emerald-300/45 hover:bg-white hover:text-black'
                     : 'border-white/12 bg-white/[0.04] hover:border-white/30 hover:bg-white hover:text-black'
                 }`}
               >
-                <span className="whitespace-nowrap sm:hidden">Review</span>
-                <span className="hidden whitespace-nowrap sm:inline">Order Review</span>
+                <span className="whitespace-nowrap tracking-[0.01em]">Order Review</span>
                 <span
                   className={`rounded-full px-1.5 py-0.5 text-[11px] sm:px-2 sm:text-xs ${
                     hasCartItems

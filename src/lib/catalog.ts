@@ -16,6 +16,8 @@ type PublicCatalogResponse = {
 };
 
 const productCache = new Map<string, PublicProduct>();
+const catalogCache = new Map<string, PublicSeries[]>();
+const PUBLIC_CATALOG_SESSION_KEY = 'qiyutech-public-catalog-cache';
 
 export type PublicProduct = {
   id: string;
@@ -55,6 +57,10 @@ function getProductCacheKey(slug: string, token?: string | null) {
   return `${token || 'anonymous'}:${slug}`;
 }
 
+function getCatalogCacheKey(token?: string | null) {
+  return token ? 'authenticated' : 'anonymous';
+}
+
 export function getCachedPublicProductBySlug(slug: string, token?: string | null): PublicProduct | null {
   return productCache.get(getProductCacheKey(slug, token)) || null;
 }
@@ -65,6 +71,65 @@ export function cachePublicProduct(product: PublicProduct, token?: string | null
   }
 
   productCache.set(getProductCacheKey(product.slug, token), product);
+}
+
+export function getCachedPublicCatalog(token?: string | null): PublicSeries[] | null {
+  const cacheKey = getCatalogCacheKey(token);
+  const memoryCache = catalogCache.get(cacheKey);
+  if (memoryCache?.length) {
+    return memoryCache;
+  }
+
+  if (token || typeof window === 'undefined') {
+    return null;
+  }
+
+  try {
+    const raw = window.sessionStorage.getItem(PUBLIC_CATALOG_SESSION_KEY);
+    if (!raw) {
+      return null;
+    }
+
+    const parsed = JSON.parse(raw) as PublicSeries[];
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      return null;
+    }
+
+    catalogCache.set(cacheKey, parsed);
+    parsed.forEach((entry) => {
+      entry.products.forEach((product) => {
+        cachePublicProduct(product, token);
+      });
+    });
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+export function cachePublicCatalog(series: PublicSeries[], token?: string | null) {
+  if (!series.length) {
+    return;
+  }
+
+  const cacheKey = getCatalogCacheKey(token);
+  catalogCache.set(cacheKey, series);
+
+  series.forEach((entry) => {
+    entry.products.forEach((product) => {
+      cachePublicProduct(product, token);
+    });
+  });
+
+  if (token || typeof window === 'undefined') {
+    return;
+  }
+
+  try {
+    window.sessionStorage.setItem(PUBLIC_CATALOG_SESSION_KEY, JSON.stringify(series));
+  } catch {
+    // Ignore storage failures and keep memory cache only.
+  }
 }
 
 async function request<T>(path: string, token?: string | null): Promise<T> {
@@ -109,11 +174,7 @@ async function request<T>(path: string, token?: string | null): Promise<T> {
 export async function fetchPublicCatalog(token?: string | null): Promise<PublicSeries[]> {
   const result = await request<PublicCatalogResponse>('/products/catalog', token);
   const series = result.series || [];
-  series.forEach((entry) => {
-    entry.products.forEach((product) => {
-      cachePublicProduct(product, token);
-    });
-  });
+  cachePublicCatalog(series, token);
   return series;
 }
 

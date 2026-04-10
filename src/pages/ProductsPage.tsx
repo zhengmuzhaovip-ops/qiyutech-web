@@ -5,7 +5,7 @@ import StableImage from '../components/ui/StableImage'
 import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
 import { wholesaleProducts } from '../data/wholesaleProducts'
-import { fetchPublicCatalog, type PublicProduct, type PublicSeries } from '../lib/catalog'
+import { fetchPublicCatalog, getCachedPublicCatalog, type PublicProduct, type PublicSeries } from '../lib/catalog'
 
 function SmallBadge({ text }: { text: string }) {
   return (
@@ -60,6 +60,23 @@ function buildFallbackSeries(): PublicSeries[] {
       })),
     },
   ]
+}
+
+function buildCatalogSignature(series: PublicSeries[]) {
+  return JSON.stringify(
+    series.map((entry) => ({
+      id: entry.id,
+      productCount: entry.products.length,
+      products: entry.products.map((product) => ({
+        id: product.id,
+        slug: product.slug,
+        price: product.price,
+        stock: product.stock,
+        image: product.image,
+        gallery: product.gallery,
+      })),
+    })),
+  )
 }
 
 function CatalogProductCard({
@@ -334,28 +351,65 @@ export default function ProductsPage() {
   const { token } = useAuth()
   const { addToCart } = useCart()
   const fallbackSeries = useMemo(() => buildFallbackSeries(), [])
-  const [catalogSeries, setCatalogSeries] = useState<PublicSeries[]>(fallbackSeries)
+  const [catalogSeries, setCatalogSeries] = useState<PublicSeries[]>(() => {
+    const cachedSeries = getCachedPublicCatalog(token)
+    if (cachedSeries?.length) {
+      return cachedSeries
+    }
+
+    return token ? [] : fallbackSeries
+  })
+  const [isLoadingCatalog, setIsLoadingCatalog] = useState(() => {
+    const cachedSeries = getCachedPublicCatalog(token)
+    if (cachedSeries?.length) {
+      return false
+    }
+
+    return !!token
+  })
   const [viewportWidth, setViewportWidth] = useState(() =>
     typeof window === 'undefined' ? 1440 : window.innerWidth,
   )
 
   useEffect(() => {
     let active = true
+    const cachedSeries = getCachedPublicCatalog(token)
+
+    if (cachedSeries?.length) {
+      setCatalogSeries(cachedSeries)
+      setIsLoadingCatalog(false)
+    } else if (token) {
+      setCatalogSeries([])
+      setIsLoadingCatalog(true)
+    } else {
+      setCatalogSeries(fallbackSeries)
+      setIsLoadingCatalog(false)
+    }
 
     fetchPublicCatalog(token)
       .then((series) => {
         if (active && series.length) {
-          setCatalogSeries(series)
+          setCatalogSeries((current) => {
+            if (buildCatalogSignature(current) === buildCatalogSignature(series)) {
+              return current
+            }
+
+            return series
+          })
+          setIsLoadingCatalog(false)
         }
       })
       .catch(() => {
-        // Keep fallback when the backend catalog is not ready.
+        if (active) {
+          setIsLoadingCatalog(false)
+          setCatalogSeries((current) => (current.length ? current : fallbackSeries))
+        }
       })
 
     return () => {
       active = false
     }
-  }, [token])
+  }, [fallbackSeries, token])
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -371,6 +425,7 @@ export default function ProductsPage() {
   }, [])
 
   const isMobile = viewportWidth <= 768
+  const showCatalogSkeleton = isLoadingCatalog && catalogSeries.length === 0 && !!token
 
   function handleAdd(product: PublicProduct) {
     if (product.stock <= 0) {
@@ -478,7 +533,145 @@ export default function ProductsPage() {
             gap: isMobile ? 18 : 30,
           }}
         >
-          {catalogSeries.map((series) => (
+          {showCatalogSkeleton ? (
+            <>
+              <div
+                style={{
+                  gridColumn: '1 / -1',
+                  borderRadius: 28,
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  background:
+                    'linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0.015)), #101010',
+                  padding: isMobile ? '18px 14px' : '24px 24px',
+                  boxShadow: '0 16px 44px rgba(0,0,0,0.18)',
+                }}
+              >
+                <div
+                  style={{
+                    width: isMobile ? 118 : 132,
+                    height: 12,
+                    borderRadius: 999,
+                    background: 'rgba(255,255,255,0.08)',
+                    marginBottom: 14,
+                  }}
+                />
+                <div
+                  style={{
+                    width: isMobile ? 240 : 360,
+                    height: isMobile ? 30 : 42,
+                    borderRadius: 16,
+                    background: 'rgba(255,255,255,0.08)',
+                    marginBottom: 14,
+                  }}
+                />
+                <div
+                  style={{
+                    width: isMobile ? '92%' : '52%',
+                    height: 16,
+                    borderRadius: 999,
+                    background: 'rgba(255,255,255,0.06)',
+                    marginBottom: 10,
+                  }}
+                />
+                <div
+                  style={{
+                    width: isMobile ? '80%' : '36%',
+                    height: 16,
+                    borderRadius: 999,
+                    background: 'rgba(255,255,255,0.05)',
+                  }}
+                />
+              </div>
+
+              {[0, 1].map((index) => (
+                <div
+                  key={index}
+                  style={{
+                    overflow: 'hidden',
+                    borderRadius: 32,
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    background:
+                      'linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.018) 42%, rgba(255,255,255,0.02) 100%), #101010',
+                    minHeight: isMobile ? 560 : 700,
+                    boxShadow: '0 20px 56px rgba(0,0,0,0.24)',
+                  }}
+                >
+                  <div style={{ padding: isMobile ? 14 : 20, paddingBottom: 0 }}>
+                    <div
+                      style={{
+                        height: isMobile ? 260 : 400,
+                        borderRadius: 26,
+                        background:
+                          'radial-gradient(circle at 50% 18%, rgba(255,255,255,0.14), transparent 28%), linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02) 34%, rgba(10,10,10,0.5) 100%), #111111',
+                      }}
+                    />
+                  </div>
+
+                  <div style={{ padding: isMobile ? '18px 16px 16px' : 26 }}>
+                    <div
+                      style={{
+                        width: 116,
+                        height: 12,
+                        borderRadius: 999,
+                        background: 'rgba(255,255,255,0.08)',
+                        marginBottom: 14,
+                      }}
+                    />
+                    <div
+                      style={{
+                        width: '62%',
+                        height: 30,
+                        borderRadius: 14,
+                        background: 'rgba(255,255,255,0.08)',
+                        marginBottom: 10,
+                      }}
+                    />
+                    <div
+                      style={{
+                        width: '44%',
+                        height: 22,
+                        borderRadius: 12,
+                        background: 'rgba(255,255,255,0.06)',
+                        marginBottom: 18,
+                      }}
+                    />
+                    <div
+                      style={{
+                        width: '96%',
+                        height: 14,
+                        borderRadius: 999,
+                        background: 'rgba(255,255,255,0.05)',
+                        marginBottom: 10,
+                      }}
+                    />
+                    <div
+                      style={{
+                        width: '84%',
+                        height: 14,
+                        borderRadius: 999,
+                        background: 'rgba(255,255,255,0.05)',
+                        marginBottom: 18,
+                      }}
+                    />
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      {[0, 1].map((badge) => (
+                        <div
+                          key={badge}
+                          style={{
+                            width: 96,
+                            height: 28,
+                            borderRadius: 999,
+                            background: 'rgba(255,255,255,0.05)',
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </>
+          ) : (
+            catalogSeries.map((series) => (
             <div key={series.id} style={{ display: 'contents' }}>
               <div
                 style={{
@@ -547,7 +740,8 @@ export default function ProductsPage() {
                 />
               ))}
             </div>
-          ))}
+            ))
+          )}
         </div>
       </section>
     </div>
