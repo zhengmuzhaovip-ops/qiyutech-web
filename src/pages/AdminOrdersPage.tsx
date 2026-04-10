@@ -199,7 +199,7 @@ export default function AdminOrdersPage() {
     const trackingNumber = nextDraft?.trackingNumber?.trim() || '';
 
     if (!trackingNumber) {
-      setError('Tracking number is required before saving shipment details.');
+      setError('请先填写物流单号，再保存物流信息。');
       return;
     }
 
@@ -215,9 +215,9 @@ export default function AdminOrdersPage() {
       setError('');
     } catch (saveError) {
       setError(
-        saveError instanceof Error
-          ? saveError.message
-          : 'Unable to save shipment details for this order.',
+          saveError instanceof Error
+            ? saveError.message
+            : '保存物流信息失败，请稍后重试。',
       );
     } finally {
       setSavingShipmentOrderId(null);
@@ -367,6 +367,11 @@ export default function AdminOrdersPage() {
                           paymentStatus: order.paymentStatus,
                         };
                         const trackingDraft = draftTracking[order.id] || createTrackingDraft(order);
+                        const hasShipment = Boolean(order.shipment?.trackingNumber);
+                        const isPaidOrder = draft.paymentStatus === 'paid';
+                        const isShippingStage =
+                          draft.status === 'shipped' || draft.status === 'delivered';
+                        const canManageShipment = hasShipment || (isPaidOrder && isShippingStage);
 
                         return (
                           <div
@@ -527,13 +532,14 @@ export default function AdminOrdersPage() {
                                           compact
                                         />
                                       </div>
+                                      {canManageShipment ? (
                                       <div className="mt-4 rounded-[0.95rem] border border-white/10 bg-black/40 px-3 py-3">
                                         <p className="text-xs uppercase tracking-[0.18em] text-neutral-500">
-                                          Shipment tracking
+                                          物流追踪
                                         </p>
                                         <div className="mt-3 grid gap-3 sm:grid-cols-2">
                                           <label className="flex flex-col gap-2 text-xs uppercase tracking-[0.18em] text-neutral-500 sm:col-span-2">
-                                            Tracking number
+                                            物流单号
                                             <input
                                               value={trackingDraft.trackingNumber}
                                               onChange={(event) =>
@@ -545,12 +551,12 @@ export default function AdminOrdersPage() {
                                                   },
                                                 }))
                                               }
-                                              placeholder="Enter tracking number"
+                                              placeholder="请输入物流单号"
                                               className="h-11 rounded-[1rem] border border-white/10 bg-black px-4 text-sm normal-case tracking-normal text-white outline-none placeholder:text-neutral-500"
                                             />
                                           </label>
                                           <label className="flex flex-col gap-2 text-xs uppercase tracking-[0.18em] text-neutral-500">
-                                            Carrier code
+                                            承运商代码
                                             <input
                                               value={trackingDraft.carrierCode}
                                               onChange={(event) =>
@@ -562,12 +568,12 @@ export default function AdminOrdersPage() {
                                                   },
                                                 }))
                                               }
-                                              placeholder="Optional 17TRACK carrier code"
+                                              placeholder="可选，填写 17TRACK 承运商代码"
                                               className="h-11 rounded-[1rem] border border-white/10 bg-black px-4 text-sm normal-case tracking-normal text-white outline-none placeholder:text-neutral-500"
                                             />
                                           </label>
                                           <label className="flex flex-col gap-2 text-xs uppercase tracking-[0.18em] text-neutral-500">
-                                            Carrier name
+                                            承运商名称
                                             <input
                                               value={trackingDraft.carrierName}
                                               onChange={(event) =>
@@ -579,7 +585,7 @@ export default function AdminOrdersPage() {
                                                   },
                                                 }))
                                               }
-                                              placeholder="Optional display name"
+                                              placeholder="可选，填写前台显示名称"
                                               className="h-11 rounded-[1rem] border border-white/10 bg-black px-4 text-sm normal-case tracking-normal text-white outline-none placeholder:text-neutral-500"
                                             />
                                           </label>
@@ -588,7 +594,7 @@ export default function AdminOrdersPage() {
                                         {order.shipment ? (
                                           <div className="mt-3 rounded-[0.9rem] border border-white/10 bg-black px-3 py-3 text-sm text-neutral-300">
                                             <p className="text-xs uppercase tracking-[0.18em] text-neutral-500">
-                                              Latest tracking
+                                              最新物流
                                             </p>
                                             <p className="mt-2 break-all text-white">
                                               {order.shipment.trackingNumber}
@@ -596,7 +602,7 @@ export default function AdminOrdersPage() {
                                             <p className="mt-2 text-sm text-neutral-400">
                                               {order.shipment.latestDescription ||
                                                 order.shipment.latestStatus ||
-                                                'Tracking saved. Waiting for carrier updates.'}
+                                                '物流单号已保存，等待承运商返回更新。'}
                                             </p>
                                             {order.shipment.latestLocation ? (
                                               <p className="mt-1 text-sm text-neutral-500">
@@ -611,28 +617,35 @@ export default function AdminOrdersPage() {
                                           </div>
                                         ) : null}
                                       </div>
+                                      ) : (
+                                        <div className="mt-4 rounded-[0.95rem] border border-dashed border-white/10 bg-black/20 px-3 py-3 text-sm text-neutral-400">
+                                          订单付款完成后，将订单状态切换为“已发货”或“已送达”，即可录入物流单号。
+                                        </div>
+                                      )}
                                       {order.note ? (
                                         <p className="mt-4 rounded-[0.9rem] border border-white/10 bg-black px-3 py-3 text-sm leading-6 text-neutral-400">
                                           {order.note}
                                         </p>
                                       ) : null}
                                       <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                                        {canManageShipment ? (
                                         <Button
                                           type="button"
                                           variant="secondary"
                                           onClick={() => handleSaveShipment(order)}
                                           disabled={savingShipmentOrderId === order.id}
-                                          className="w-full"
+                                          className="min-h-[54px] w-full whitespace-nowrap border-emerald-500/30 bg-emerald-500/10 px-4 text-sm text-emerald-100 hover:bg-emerald-500/15"
                                         >
                                           {savingShipmentOrderId === order.id
-                                            ? 'Saving shipment...'
-                                            : 'Save shipment'}
+                                            ? '保存物流中...'
+                                            : '保存物流信息'}
                                         </Button>
+                                        ) : null}
                                         <Button
                                           type="button"
                                           onClick={() => handleSave(order.id)}
                                           disabled={savingOrderId === order.id}
-                                          className="w-full"
+                                          className="min-h-[54px] w-full whitespace-nowrap px-4 text-sm"
                                         >
                                           {savingOrderId === order.id
                                             ? '保存中...'
@@ -643,7 +656,7 @@ export default function AdminOrdersPage() {
                                           variant="secondary"
                                           onClick={() => handleDownloadInvoice(order)}
                                           disabled={downloadingOrderId === order.id}
-                                          className="w-full"
+                                          className="min-h-[54px] w-full whitespace-nowrap px-4 text-sm"
                                         >
                                           {downloadingOrderId === order.id
                                             ? '正在生成 PDF...'
@@ -654,7 +667,7 @@ export default function AdminOrdersPage() {
                                           variant="secondary"
                                           onClick={() => handleDeleteOrder(order)}
                                           disabled={deletingOrderId === order.id}
-                                          className="w-full border-red-500/25 bg-red-500/10 text-red-200 hover:bg-red-500/15"
+                                          className="min-h-[54px] w-full whitespace-nowrap border-red-500/25 bg-red-500/10 px-4 text-sm text-red-200 hover:bg-red-500/15"
                                         >
                                           {deletingOrderId === order.id
                                             ? '删除中...'

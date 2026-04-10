@@ -215,31 +215,6 @@ export default function AccountPage() {
                       value={isAwaitingPaymentOrder(currentOrder.paymentStatus) ? 'Pending' : 'Confirmed'}
                     />
                   </div>
-                  {currentOrder.shipment?.trackingNumber ? (
-                    <div className="mt-4 rounded-[1rem] border border-white/10 bg-white/[0.03] px-4 py-4">
-                      <p className="text-xs uppercase tracking-[0.22em] text-neutral-500">
-                        Latest tracking
-                      </p>
-                      <p className="mt-3 break-all text-sm font-medium text-white">
-                        {currentOrder.shipment.trackingNumber}
-                      </p>
-                      <p className="mt-2 text-sm leading-6 text-neutral-300">
-                        {currentOrder.shipment.latestDescription ||
-                          currentOrder.shipment.latestStatus ||
-                          'Shipment created. Tracking updates will appear here once the carrier scans the parcel.'}
-                      </p>
-                      {currentOrder.shipment.latestLocation ? (
-                        <p className="mt-2 text-sm text-neutral-500">
-                          {currentOrder.shipment.latestLocation}
-                        </p>
-                      ) : null}
-                      {currentOrder.shipment.latestCheckpointAt ? (
-                        <p className="mt-2 text-xs uppercase tracking-[0.18em] text-neutral-500">
-                          Updated {formatTrackingAt(currentOrder.shipment.latestCheckpointAt)}
-                        </p>
-                      ) : null}
-                    </div>
-                  ) : null}
                   <div className="mt-5 flex flex-col gap-3">
                     <button
                       type="button"
@@ -256,6 +231,68 @@ export default function AccountPage() {
                     </p>
                   </div>
                 </div>
+                {currentOrder.shipment?.trackingNumber ? (
+                  <div className="rounded-[1.25rem] border border-white/10 bg-black p-4 sm:rounded-[1.5rem] sm:p-5 lg:col-span-2">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.22em] text-neutral-500">
+                          Latest tracking
+                        </p>
+                        <p className="mt-2 text-sm text-neutral-400">
+                          Latest carrier checkpoint and destination progress.
+                        </p>
+                      </div>
+                      <TrackingHighlightPill
+                        status={
+                          currentOrder.shipment.latestStatus ||
+                          currentOrder.shipment.latestDescription ||
+                          ''
+                        }
+                      />
+                    </div>
+                    <div className="mt-4 grid gap-4">
+                      <div className="rounded-[1rem] border border-emerald-500/15 bg-[linear-gradient(180deg,rgba(16,185,129,0.12),rgba(255,255,255,0.03))] px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                          <div className="min-w-0 lg:flex lg:items-center lg:gap-4">
+                            <p className="text-[11px] uppercase tracking-[0.2em] text-neutral-500 lg:shrink-0">
+                              Tracking number
+                            </p>
+                            <p className="mt-2 break-all text-base font-semibold text-white lg:mt-0 lg:whitespace-nowrap">
+                              {currentOrder.shipment.trackingNumber}
+                            </p>
+                          </div>
+                          {currentOrder.shipment.carrierName ? (
+                            <p className="inline-flex shrink-0 items-center rounded-full border border-white/10 bg-black/30 px-3 py-1 text-xs font-medium text-neutral-300">
+                              {currentOrder.shipment.carrierName}
+                            </p>
+                          ) : null}
+                        </div>
+                      </div>
+                      <div className="rounded-[1rem] border border-sky-500/15 bg-[linear-gradient(180deg,rgba(56,189,248,0.1),rgba(255,255,255,0.03))] px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                        <p className="text-[11px] uppercase tracking-[0.2em] text-neutral-500">
+                          Latest update
+                        </p>
+                        <p className="mt-3 text-[15px] leading-7 text-neutral-100">
+                          {currentOrder.shipment.latestDescription ||
+                            currentOrder.shipment.latestStatus ||
+                            'Shipment created. Tracking updates will appear here once the carrier scans the parcel.'}
+                        </p>
+                        <div className="mt-4 flex flex-wrap items-center gap-3">
+                          {currentOrder.shipment.latestLocation ? (
+                            <p className="inline-flex items-center rounded-full border border-white/10 bg-black/30 px-3 py-1.5 text-sm text-neutral-300">
+                              {currentOrder.shipment.latestLocation}
+                            </p>
+                          ) : null}
+                          {currentOrder.shipment.latestCheckpointAt ? (
+                            <p className="text-xs uppercase tracking-[0.18em] text-neutral-500">
+                              Updated {formatTrackingAt(currentOrder.shipment.latestCheckpointAt)}
+                            </p>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
               </div>
             ) : (
               <div className="mt-4 rounded-[1.25rem] border border-dashed border-white/10 bg-black px-5 py-6 text-sm leading-7 text-neutral-400">
@@ -334,7 +371,7 @@ export default function AccountPage() {
                               <p className="text-xs uppercase tracking-[0.22em] text-neutral-500">
                                 Shipment tracking
                               </p>
-                              <div className="mt-3 grid gap-3 sm:grid-cols-[0.9fr,1.1fr]">
+                              <div className="mt-3 grid gap-4">
                                 <div>
                                   <p className="text-[11px] uppercase tracking-[0.2em] text-neutral-500">
                                     Tracking number
@@ -352,7 +389,7 @@ export default function AccountPage() {
                                   <p className="text-[11px] uppercase tracking-[0.2em] text-neutral-500">
                                     Latest update
                                   </p>
-                                  <p className="mt-2 text-sm leading-6 text-white">
+                                  <p className="mt-2 text-sm leading-7 text-white">
                                     {order.shipment.latestDescription ||
                                       order.shipment.latestStatus ||
                                       'Tracking pending first carrier scan.'}
@@ -750,6 +787,34 @@ function formatTrackingAt(value: string) {
     dateStyle: 'medium',
     timeStyle: 'short',
   });
+}
+
+function TrackingHighlightPill({ status }: { status: string }) {
+  const normalized = status.toLowerCase();
+  const isDelivered =
+    normalized.includes('delivered') ||
+    normalized.includes('signed') ||
+    normalized.includes('签收');
+  const isTransit =
+    normalized.includes('transit') ||
+    normalized.includes('shipped') ||
+    normalized.includes('派送') ||
+    normalized.includes('运输');
+
+  const label = isDelivered ? 'Delivered' : isTransit ? 'In transit' : 'Tracking live';
+  const tone = isDelivered
+    ? 'border-emerald-400/30 bg-emerald-500/10 text-emerald-100'
+    : isTransit
+      ? 'border-sky-400/30 bg-sky-500/10 text-sky-100'
+      : 'border-amber-400/30 bg-amber-500/10 text-amber-100';
+
+  return (
+    <span
+      className={`inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] ${tone}`}
+    >
+      {label}
+    </span>
+  );
 }
 
 function getCompactHeadline(value: string) {
