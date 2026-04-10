@@ -78,9 +78,9 @@ export default function Header() {
               </a>
               <Link
                 to="/cart"
-                className={`inline-flex min-w-[126px] shrink-0 items-center justify-between gap-2 rounded-full border px-3.5 py-2 text-[12px] font-medium text-white transition hover:-translate-y-0.5 sm:min-w-0 sm:gap-2 sm:px-4 sm:py-2.5 sm:text-sm ${
+                className={`inline-flex min-w-[126px] shrink-0 items-center justify-between gap-2 rounded-full border px-3.5 py-2 text-[12px] font-medium transition hover:-translate-y-0.5 sm:min-w-0 sm:gap-2 sm:px-4 sm:py-2.5 sm:text-sm ${
                   hasCartItems
-                    ? 'border-emerald-400/25 bg-emerald-400/[0.06] shadow-[0_0_22px_rgba(52,211,153,0.08)] hover:border-emerald-300/45 hover:bg-white hover:text-black'
+                    ? 'border-emerald-300/22 bg-[linear-gradient(180deg,rgba(16,185,129,0.1),rgba(255,255,255,0.02))] text-white shadow-[0_0_18px_rgba(52,211,153,0.05)] hover:border-emerald-300/32 hover:bg-[linear-gradient(180deg,rgba(16,185,129,0.14),rgba(255,255,255,0.03))] hover:text-white'
                     : 'border-white/12 bg-white/[0.04] hover:border-white/30 hover:bg-white hover:text-black'
                 }`}
               >
@@ -88,7 +88,7 @@ export default function Header() {
                 <span
                   className={`rounded-full px-1.5 py-0.5 text-[11px] sm:px-2 sm:text-xs ${
                     hasCartItems
-                      ? 'border border-emerald-300/25 bg-emerald-400/15 text-emerald-100 shadow-[0_0_10px_rgba(52,211,153,0.18)]'
+                      ? 'border border-emerald-300/20 bg-emerald-400/12 text-emerald-50'
                       : 'border border-current/15'
                   }`}
                 >

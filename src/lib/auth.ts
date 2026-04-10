@@ -79,8 +79,8 @@ async function authRequest(
       },
       body: JSON.stringify(payload),
     });
-  } catch {
-    throw new Error('Unable to reach the server. Please make sure the local API is running.');
+    } catch {
+    throw new Error('Unable to reach the server. Please check that the API is available and try again.');
   }
 
   const result = (await response.json()) as AuthSuccessResponse | AuthFailureResponse;
@@ -153,8 +153,8 @@ export async function updateTradeProfile(
       },
       body: JSON.stringify(payload),
     });
-  } catch {
-    throw new Error('Unable to reach the server. Please make sure the local API is running.');
+    } catch {
+    throw new Error('Unable to reach the server. Please check that the API is available and try again.');
   }
 
   const result = (await response.json()) as
@@ -185,8 +185,8 @@ export async function lookupUsPostalCode(
         },
       },
     );
-  } catch {
-    throw new Error('Unable to reach the server. Please make sure the local API is running.');
+    } catch {
+    throw new Error('Unable to reach the server. Please check that the API is available and try again.');
   }
 
   const result = (await response.json()) as

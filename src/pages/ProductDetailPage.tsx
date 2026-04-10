@@ -221,6 +221,7 @@ export default function ProductDetailPage() {
   const currentImage = activeImage || primaryDetailImage
   const isMobile = viewportWidth <= 768
   const isOutOfStock = product.stock <= 0
+  const maxOrderQuantity = isOutOfStock ? 1 : Math.max(1, product.stock)
   const showCustomPrice = Boolean(product.hasCustomPrice && product.basePrice > product.price)
   const phoneHref = `tel:${siteSettings.phone.replace(/[^\d+]/g, '')}`
   const emailHref = `mailto:${siteSettings.email}`
@@ -885,27 +886,54 @@ export default function ProductDetailPage() {
                         -
                       </button>
 
-                      <div
+                      <input
+                        type="number"
+                        min={1}
+                        max={maxOrderQuantity}
+                        value={quantity}
+                        onChange={(event) => {
+                          const rawValue = event.target.value
+                          if (!rawValue) {
+                            setQuantity(1)
+                            return
+                          }
+
+                          const nextValue = Number.parseInt(rawValue, 10)
+                          if (Number.isNaN(nextValue)) {
+                            return
+                          }
+
+                          setQuantity(Math.min(maxOrderQuantity, Math.max(1, nextValue)))
+                        }}
+                        onBlur={() => {
+                          setQuantity((prev) => Math.min(maxOrderQuantity, Math.max(1, prev)))
+                        }}
+                        inputMode="numeric"
                         style={{
-                          minWidth: isMobile ? 44 : 58,
+                          width: isMobile ? 54 : 76,
+                          height: isMobile ? 42 : 46,
+                          border: 'none',
+                          outline: 'none',
+                          background: 'transparent',
+                          color: '#fff',
                           textAlign: 'center',
                           fontWeight: 600,
+                          fontSize: isMobile ? 16 : 18,
+                          MozAppearance: 'textfield',
                         }}
-                      >
-                        {quantity}
-                      </div>
+                      />
 
                       <button
                         type="button"
-                        onClick={() => setQuantity((prev) => Math.min(product.stock, prev + 1))}
-                        disabled={isOutOfStock || quantity >= product.stock}
+                        onClick={() => setQuantity((prev) => Math.min(maxOrderQuantity, prev + 1))}
+                        disabled={isOutOfStock || quantity >= maxOrderQuantity}
                         style={{
                           ...qtyButtonStyle,
                           width: isMobile ? 38 : qtyButtonStyle.width,
                           height: isMobile ? 42 : qtyButtonStyle.height,
-                          opacity: isOutOfStock || quantity >= product.stock ? 0.35 : 1,
+                          opacity: isOutOfStock || quantity >= maxOrderQuantity ? 0.35 : 1,
                           cursor:
-                            isOutOfStock || quantity >= product.stock
+                            isOutOfStock || quantity >= maxOrderQuantity
                               ? 'not-allowed'
                               : qtyButtonStyle.cursor,
                         }}
@@ -915,7 +943,7 @@ export default function ProductDetailPage() {
                     </div>
 
                     <div style={{ color: '#8d8d8d', fontSize: 13 }}>
-                      {isOutOfStock ? 'This item is currently unavailable.' : 'Select order quantity'}
+                      {isOutOfStock ? 'This item is currently unavailable.' : 'Enter quantity, then add to order'}
                     </div>
                   </div>
 
