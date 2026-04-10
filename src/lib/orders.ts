@@ -38,6 +38,31 @@ type ApiOrder = {
     address: string;
     postalCode: string;
   };
+  shipment?: {
+    provider: string;
+    trackingNumber: string;
+    carrierCode: string;
+    carrierName: string;
+    trackingTag?: string;
+    trackingUrl?: string;
+    registrationStatus: string;
+    registeredAt?: string | null;
+    lastSyncedAt?: string | null;
+    syncError?: string;
+    latestStatus?: string;
+    latestStatusCode?: string;
+    latestSubStatus?: string;
+    latestDescription?: string;
+    latestLocation?: string;
+    latestCheckpointAt?: string | null;
+    events?: Array<{
+      timestamp?: string | null;
+      status?: string;
+      subStatus?: string;
+      description?: string;
+      location?: string;
+    }>;
+  } | null;
   items: ApiOrderItem[];
 };
 

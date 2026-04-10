@@ -76,6 +76,31 @@ type RawAdminOrder = {
     quantity: number;
     image?: string;
   }>;
+  shipment?: {
+    provider?: string;
+    trackingNumber?: string;
+    carrierCode?: string;
+    carrierName?: string;
+    trackingTag?: string;
+    trackingUrl?: string;
+    registrationStatus?: string;
+    registeredAt?: string;
+    lastSyncedAt?: string;
+    syncError?: string;
+    latestStatus?: string;
+    latestStatusCode?: string;
+    latestSubStatus?: string;
+    latestDescription?: string;
+    latestLocation?: string;
+    latestCheckpointAt?: string;
+    events?: Array<{
+      timestamp?: string;
+      status?: string;
+      subStatus?: string;
+      description?: string;
+      location?: string;
+    }>;
+  };
 };
 
 type AdminOrdersResponse = {
@@ -218,6 +243,30 @@ export type AdminOrder = {
   subtotal: number;
   shipping: number;
   tax: number;
+  shipment: {
+    provider: string;
+    trackingNumber: string;
+    carrierCode: string;
+    carrierName: string;
+    trackingUrl: string;
+    registrationStatus: string;
+    registeredAt: string;
+    lastSyncedAt: string;
+    syncError: string;
+    latestStatus: string;
+    latestStatusCode: string;
+    latestSubStatus: string;
+    latestDescription: string;
+    latestLocation: string;
+    latestCheckpointAt: string;
+    events: Array<{
+      timestamp: string;
+      status: string;
+      subStatus: string;
+      description: string;
+      location: string;
+    }>;
+  } | null;
   items: Array<{
     id: string;
     name: string;
@@ -420,6 +469,32 @@ function mapAdminOrder(order: RawAdminOrder): AdminOrder {
     subtotal: order.pricing?.subtotal || 0,
     shipping: order.pricing?.shipping || 0,
     tax: order.pricing?.tax || 0,
+    shipment: order.shipment?.trackingNumber
+      ? {
+          provider: order.shipment.provider || '17track',
+          trackingNumber: order.shipment.trackingNumber || '',
+          carrierCode: order.shipment.carrierCode || '',
+          carrierName: order.shipment.carrierName || '',
+          trackingUrl: order.shipment.trackingUrl || '',
+          registrationStatus: order.shipment.registrationStatus || 'manual',
+          registeredAt: order.shipment.registeredAt || '',
+          lastSyncedAt: order.shipment.lastSyncedAt || '',
+          syncError: order.shipment.syncError || '',
+          latestStatus: order.shipment.latestStatus || '',
+          latestStatusCode: order.shipment.latestStatusCode || '',
+          latestSubStatus: order.shipment.latestSubStatus || '',
+          latestDescription: order.shipment.latestDescription || '',
+          latestLocation: order.shipment.latestLocation || '',
+          latestCheckpointAt: order.shipment.latestCheckpointAt || '',
+          events: (order.shipment.events || []).map((event) => ({
+            timestamp: event.timestamp || '',
+            status: event.status || '',
+            subStatus: event.subStatus || '',
+            description: event.description || '',
+            location: event.location || '',
+          })),
+        }
+      : null,
     items: (order.items || []).map((item) => ({
       id: item._id || String(item.product || item.slug || item.name),
       name: item.name,
@@ -634,6 +709,21 @@ export async function updateAdminOrderStatus(
 ): Promise<void> {
   await authorizedRequest<{ success: true; order: RawAdminOrder }>(
     `/admin/orders/${orderId}/status`,
+    token,
+    {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+export async function updateAdminOrderShipment(
+  token: string,
+  orderId: string,
+  payload: { trackingNumber: string; carrierCode?: string; carrierName?: string; markAsShipped?: boolean },
+): Promise<void> {
+  await authorizedRequest<{ success: true; order: RawAdminOrder }>(
+    `/admin/orders/${orderId}/shipment`,
     token,
     {
       method: 'PUT',

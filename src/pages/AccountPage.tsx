@@ -215,6 +215,31 @@ export default function AccountPage() {
                       value={isAwaitingPaymentOrder(currentOrder.paymentStatus) ? 'Pending' : 'Confirmed'}
                     />
                   </div>
+                  {currentOrder.shipment?.trackingNumber ? (
+                    <div className="mt-4 rounded-[1rem] border border-white/10 bg-white/[0.03] px-4 py-4">
+                      <p className="text-xs uppercase tracking-[0.22em] text-neutral-500">
+                        Latest tracking
+                      </p>
+                      <p className="mt-3 break-all text-sm font-medium text-white">
+                        {currentOrder.shipment.trackingNumber}
+                      </p>
+                      <p className="mt-2 text-sm leading-6 text-neutral-300">
+                        {currentOrder.shipment.latestDescription ||
+                          currentOrder.shipment.latestStatus ||
+                          'Shipment created. Tracking updates will appear here once the carrier scans the parcel.'}
+                      </p>
+                      {currentOrder.shipment.latestLocation ? (
+                        <p className="mt-2 text-sm text-neutral-500">
+                          {currentOrder.shipment.latestLocation}
+                        </p>
+                      ) : null}
+                      {currentOrder.shipment.latestCheckpointAt ? (
+                        <p className="mt-2 text-xs uppercase tracking-[0.18em] text-neutral-500">
+                          Updated {formatTrackingAt(currentOrder.shipment.latestCheckpointAt)}
+                        </p>
+                      ) : null}
+                    </div>
+                  ) : null}
                   <div className="mt-5 flex flex-col gap-3">
                     <button
                       type="button"
@@ -304,6 +329,48 @@ export default function AccountPage() {
                               {presentation.nextStep}
                             </p>
                           </div>
+                          {order.shipment?.trackingNumber ? (
+                            <div className="mb-4 rounded-[1rem] border border-white/10 bg-white/[0.03] px-4 py-3">
+                              <p className="text-xs uppercase tracking-[0.22em] text-neutral-500">
+                                Shipment tracking
+                              </p>
+                              <div className="mt-3 grid gap-3 sm:grid-cols-[0.9fr,1.1fr]">
+                                <div>
+                                  <p className="text-[11px] uppercase tracking-[0.2em] text-neutral-500">
+                                    Tracking number
+                                  </p>
+                                  <p className="mt-2 break-all text-sm font-medium text-white">
+                                    {order.shipment.trackingNumber}
+                                  </p>
+                                  {order.shipment.carrierName ? (
+                                    <p className="mt-2 text-sm text-neutral-400">
+                                      {order.shipment.carrierName}
+                                    </p>
+                                  ) : null}
+                                </div>
+                                <div>
+                                  <p className="text-[11px] uppercase tracking-[0.2em] text-neutral-500">
+                                    Latest update
+                                  </p>
+                                  <p className="mt-2 text-sm leading-6 text-white">
+                                    {order.shipment.latestDescription ||
+                                      order.shipment.latestStatus ||
+                                      'Tracking pending first carrier scan.'}
+                                  </p>
+                                  {order.shipment.latestLocation ? (
+                                    <p className="mt-2 text-sm text-neutral-400">
+                                      {order.shipment.latestLocation}
+                                    </p>
+                                  ) : null}
+                                  {order.shipment.latestCheckpointAt ? (
+                                    <p className="mt-2 text-xs uppercase tracking-[0.18em] text-neutral-500">
+                                      {formatTrackingAt(order.shipment.latestCheckpointAt)}
+                                    </p>
+                                  ) : null}
+                                </div>
+                              </div>
+                            </div>
+                          ) : null}
                           <div className="space-y-3">
                             {order.items.map((item) => (
                               <div
@@ -672,6 +739,13 @@ function SupportCard({
 }
 
 function formatPlacedAt(value: string) {
+  return new Date(value).toLocaleString('en-US', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  });
+}
+
+function formatTrackingAt(value: string) {
   return new Date(value).toLocaleString('en-US', {
     dateStyle: 'medium',
     timeStyle: 'short',

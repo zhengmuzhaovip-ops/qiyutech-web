@@ -7,6 +7,7 @@ import {
   deleteAdminOrder,
   fetchAdminDashboard,
   fetchAdminOrders,
+  updateAdminOrderShipment,
   updateAdminOrderStatus,
   type AdminDashboard,
   type AdminOrder,
@@ -37,6 +38,20 @@ type OrderGroup = {
   items: AdminOrder[];
 };
 
+type TrackingDraft = {
+  trackingNumber: string;
+  carrierCode: string;
+  carrierName: string;
+};
+
+function createTrackingDraft(order: AdminOrder): TrackingDraft {
+  return {
+    trackingNumber: order.shipment?.trackingNumber || '',
+    carrierCode: order.shipment?.carrierCode || '',
+    carrierName: order.shipment?.carrierName || '',
+  };
+}
+
 export default function AdminOrdersPage() {
   const { isLoggedIn, user, token } = useAuth();
   const [dashboard, setDashboard] = useState<AdminDashboard | null>(null);
@@ -49,8 +64,10 @@ export default function AdminOrdersPage() {
   const [draftStatuses, setDraftStatuses] = useState<
     Record<string, { status: string; paymentStatus: string }>
   >({});
+  const [draftTracking, setDraftTracking] = useState<Record<string, TrackingDraft>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [savingOrderId, setSavingOrderId] = useState<string | null>(null);
+  const [savingShipmentOrderId, setSavingShipmentOrderId] = useState<string | null>(null);
   const [downloadingOrderId, setDownloadingOrderId] = useState<string | null>(null);
   const [deletingOrderId, setDeletingOrderId] = useState<string | null>(null);
   const [error, setError] = useState('');
@@ -88,6 +105,9 @@ export default function AdminOrdersPage() {
               { status: order.status, paymentStatus: order.paymentStatus },
             ]),
           ),
+        );
+        setDraftTracking(
+          Object.fromEntries(nextOrders.map((order) => [order.id, createTrackingDraft(order)])),
         );
         setExpandedDateKey(null);
         setExpandedOrderId(null);
@@ -148,6 +168,9 @@ export default function AdminOrdersPage() {
         ]),
       ),
     );
+    setDraftTracking(
+      Object.fromEntries(nextOrders.map((order) => [order.id, createTrackingDraft(order)])),
+    );
     setExpandedOrderId(null);
   }
 
@@ -166,6 +189,38 @@ export default function AdminOrdersPage() {
       setError(saveError instanceof Error ? saveError.message : '无法更新这笔订单。');
     } finally {
       setSavingOrderId(null);
+    }
+  }
+
+  async function handleSaveShipment(order: AdminOrder) {
+    if (!token) return;
+
+    const nextDraft = draftTracking[order.id];
+    const trackingNumber = nextDraft?.trackingNumber?.trim() || '';
+
+    if (!trackingNumber) {
+      setError('Tracking number is required before saving shipment details.');
+      return;
+    }
+
+    try {
+      setSavingShipmentOrderId(order.id);
+      await updateAdminOrderShipment(token, order.id, {
+        trackingNumber,
+        carrierCode: nextDraft?.carrierCode?.trim() || undefined,
+        carrierName: nextDraft?.carrierName?.trim() || undefined,
+        markAsShipped: true,
+      });
+      await refreshOrders();
+      setError('');
+    } catch (saveError) {
+      setError(
+        saveError instanceof Error
+          ? saveError.message
+          : 'Unable to save shipment details for this order.',
+      );
+    } finally {
+      setSavingShipmentOrderId(null);
     }
   }
 
@@ -311,6 +366,7 @@ export default function AdminOrdersPage() {
                           status: order.status,
                           paymentStatus: order.paymentStatus,
                         };
+                        const trackingDraft = draftTracking[order.id] || createTrackingDraft(order);
 
                         return (
                           <div
@@ -471,12 +527,107 @@ export default function AdminOrdersPage() {
                                           compact
                                         />
                                       </div>
+                                      <div className="mt-4 rounded-[0.95rem] border border-white/10 bg-black/40 px-3 py-3">
+                                        <p className="text-xs uppercase tracking-[0.18em] text-neutral-500">
+                                          Shipment tracking
+                                        </p>
+                                        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                                          <label className="flex flex-col gap-2 text-xs uppercase tracking-[0.18em] text-neutral-500 sm:col-span-2">
+                                            Tracking number
+                                            <input
+                                              value={trackingDraft.trackingNumber}
+                                              onChange={(event) =>
+                                                setDraftTracking((current) => ({
+                                                  ...current,
+                                                  [order.id]: {
+                                                    ...trackingDraft,
+                                                    trackingNumber: event.target.value,
+                                                  },
+                                                }))
+                                              }
+                                              placeholder="Enter tracking number"
+                                              className="h-11 rounded-[1rem] border border-white/10 bg-black px-4 text-sm normal-case tracking-normal text-white outline-none placeholder:text-neutral-500"
+                                            />
+                                          </label>
+                                          <label className="flex flex-col gap-2 text-xs uppercase tracking-[0.18em] text-neutral-500">
+                                            Carrier code
+                                            <input
+                                              value={trackingDraft.carrierCode}
+                                              onChange={(event) =>
+                                                setDraftTracking((current) => ({
+                                                  ...current,
+                                                  [order.id]: {
+                                                    ...trackingDraft,
+                                                    carrierCode: event.target.value,
+                                                  },
+                                                }))
+                                              }
+                                              placeholder="Optional 17TRACK carrier code"
+                                              className="h-11 rounded-[1rem] border border-white/10 bg-black px-4 text-sm normal-case tracking-normal text-white outline-none placeholder:text-neutral-500"
+                                            />
+                                          </label>
+                                          <label className="flex flex-col gap-2 text-xs uppercase tracking-[0.18em] text-neutral-500">
+                                            Carrier name
+                                            <input
+                                              value={trackingDraft.carrierName}
+                                              onChange={(event) =>
+                                                setDraftTracking((current) => ({
+                                                  ...current,
+                                                  [order.id]: {
+                                                    ...trackingDraft,
+                                                    carrierName: event.target.value,
+                                                  },
+                                                }))
+                                              }
+                                              placeholder="Optional display name"
+                                              className="h-11 rounded-[1rem] border border-white/10 bg-black px-4 text-sm normal-case tracking-normal text-white outline-none placeholder:text-neutral-500"
+                                            />
+                                          </label>
+                                        </div>
+
+                                        {order.shipment ? (
+                                          <div className="mt-3 rounded-[0.9rem] border border-white/10 bg-black px-3 py-3 text-sm text-neutral-300">
+                                            <p className="text-xs uppercase tracking-[0.18em] text-neutral-500">
+                                              Latest tracking
+                                            </p>
+                                            <p className="mt-2 break-all text-white">
+                                              {order.shipment.trackingNumber}
+                                            </p>
+                                            <p className="mt-2 text-sm text-neutral-400">
+                                              {order.shipment.latestDescription ||
+                                                order.shipment.latestStatus ||
+                                                'Tracking saved. Waiting for carrier updates.'}
+                                            </p>
+                                            {order.shipment.latestLocation ? (
+                                              <p className="mt-1 text-sm text-neutral-500">
+                                                {order.shipment.latestLocation}
+                                              </p>
+                                            ) : null}
+                                            {order.shipment.syncError ? (
+                                              <p className="mt-2 text-sm text-amber-300">
+                                                {order.shipment.syncError}
+                                              </p>
+                                            ) : null}
+                                          </div>
+                                        ) : null}
+                                      </div>
                                       {order.note ? (
                                         <p className="mt-4 rounded-[0.9rem] border border-white/10 bg-black px-3 py-3 text-sm leading-6 text-neutral-400">
                                           {order.note}
                                         </p>
                                       ) : null}
-                                      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                                      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                                        <Button
+                                          type="button"
+                                          variant="secondary"
+                                          onClick={() => handleSaveShipment(order)}
+                                          disabled={savingShipmentOrderId === order.id}
+                                          className="w-full"
+                                        >
+                                          {savingShipmentOrderId === order.id
+                                            ? 'Saving shipment...'
+                                            : 'Save shipment'}
+                                        </Button>
                                         <Button
                                           type="button"
                                           onClick={() => handleSave(order.id)}
