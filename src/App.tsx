@@ -18,6 +18,7 @@ import LoginPage from './pages/LoginPage';
 import ProductDetailPage from './pages/ProductDetailPage';
 import ProductsPage from './pages/ProductsPage';
 import RegisterPage from './pages/RegisterPage';
+import { preloadImage } from './components/ui/StableImage';
 
 const criticalImageSources = [
   '/images/home-hero-geek-bar-pulse-x.png',
@@ -86,10 +87,10 @@ function WarmCriticalImages() {
         return;
       }
 
-      criticalImageSources.forEach((src) => {
-        const image = new Image();
-        image.decoding = 'async';
-        image.src = src;
+      criticalImageSources.forEach((src, index) => {
+        void preloadImage(src, index < 4 ? 'high' : 'auto').catch(() => {
+          // Let the on-screen image fallback handle any broken asset state.
+        });
       });
     };
 
@@ -100,10 +101,10 @@ function WarmCriticalImages() {
         requestIdleCallback: (callback: () => void, options?: { timeout: number }) => number;
         cancelIdleCallback: (id: number) => void;
       };
-      const idleId = idleWindow.requestIdleCallback(warm, { timeout: 1200 });
+      const idleId = idleWindow.requestIdleCallback(warm, { timeout: 350 });
       dispose = () => idleWindow.cancelIdleCallback(idleId);
     } else {
-      const timeoutId = setTimeout(warm, 900);
+      const timeoutId = setTimeout(warm, 180);
       dispose = () => clearTimeout(timeoutId);
     }
 

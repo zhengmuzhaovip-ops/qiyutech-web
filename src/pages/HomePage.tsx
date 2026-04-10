@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ButtonLink } from '../components/ui/Button'
+import StableImage from '../components/ui/StableImage'
 
 const heroSignals = [
   'Wholesale pricing',
@@ -444,12 +445,18 @@ export default function HomePage() {
                   }}
                 />
 
-                <img
+                <StableImage
                   src="/images/home-hero-geek-bar-pulse-x.png"
                   alt="GEEK BAR PULSE X"
                   loading="eager"
                   fetchPriority="high"
                   decoding="async"
+                  containerStyle={{
+                    borderRadius: 18,
+                  }}
+                  placeholderStyle={{
+                    borderRadius: 18,
+                  }}
                   style={{
                     width: '100%',
                     height: 384,
@@ -888,12 +895,18 @@ export default function HomePage() {
                     }}
                   />
 
-                  <img
+                  <StableImage
                     src="/images/home-series-geek-bar-pulse-x-7x4.png"
                     alt="GEEK BAR PULSE X Series"
                     loading="eager"
                     fetchPriority="high"
                     decoding="async"
+                    containerStyle={{
+                      borderRadius: 16,
+                    }}
+                    placeholderStyle={{
+                      borderRadius: 16,
+                    }}
                     style={{
                       width: '100%',
                       height: 192,
@@ -1094,12 +1107,18 @@ export default function HomePage() {
                   Featured Wholesale Product
                 </div>
 
-                <img
+                <StableImage
                   src="/images/home-hero-geek-bar-pulse-x.png"
                   alt="GEEK BAR PULSE X"
                   loading="eager"
                   fetchPriority="high"
                   decoding="async"
+                  containerStyle={{
+                    borderRadius: 30,
+                  }}
+                  placeholderStyle={{
+                    borderRadius: 30,
+                  }}
                   style={{
                     width: '100%',
                     height: '100%',
@@ -1909,12 +1928,18 @@ export default function HomePage() {
                   }}
                 />
 
-                <img
+                <StableImage
                   src="/images/home-series-geek-bar-pulse-x-7x4.png"
                   alt="GEEK BAR PULSE X Series"
                   loading="eager"
                   fetchPriority="high"
                   decoding="async"
+                  containerStyle={{
+                    borderRadius: isMobile ? 16 : 20,
+                  }}
+                  placeholderStyle={{
+                    borderRadius: isMobile ? 16 : 20,
+                  }}
                   style={{
                     width: '100%',
                     height: isMobile ? 152 : 308,

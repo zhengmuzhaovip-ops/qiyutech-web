@@ -15,6 +15,8 @@ type PublicCatalogResponse = {
   series: PublicSeries[];
 };
 
+const productCache = new Map<string, PublicProduct>();
+
 export type PublicProduct = {
   id: string;
   slug: string;
@@ -48,6 +50,22 @@ export type PublicSeries = {
   productCount: number;
   products: PublicProduct[];
 };
+
+function getProductCacheKey(slug: string, token?: string | null) {
+  return `${token || 'anonymous'}:${slug}`;
+}
+
+export function getCachedPublicProductBySlug(slug: string, token?: string | null): PublicProduct | null {
+  return productCache.get(getProductCacheKey(slug, token)) || null;
+}
+
+export function cachePublicProduct(product: PublicProduct, token?: string | null) {
+  if (!product.slug) {
+    return;
+  }
+
+  productCache.set(getProductCacheKey(product.slug, token), product);
+}
 
 async function request<T>(path: string, token?: string | null): Promise<T> {
   const controller = new AbortController();
@@ -90,10 +108,17 @@ async function request<T>(path: string, token?: string | null): Promise<T> {
 
 export async function fetchPublicCatalog(token?: string | null): Promise<PublicSeries[]> {
   const result = await request<PublicCatalogResponse>('/products/catalog', token);
-  return result.series || [];
+  const series = result.series || [];
+  series.forEach((entry) => {
+    entry.products.forEach((product) => {
+      cachePublicProduct(product, token);
+    });
+  });
+  return series;
 }
 
 export async function fetchPublicProductBySlug(slug: string, token?: string | null): Promise<PublicProduct> {
   const result = await request<PublicProductResponse>(`/products/slug/${slug}`, token);
+  cachePublicProduct(result.product, token);
   return result.product;
 }

@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useLocation, useParams } from 'react-router-dom'
 import { Button } from '../components/ui/Button'
+import StableImage from '../components/ui/StableImage'
 import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
 import { siteSettings } from '../data/site'
-import { fetchPublicProductBySlug, type PublicProduct } from '../lib/catalog'
+import { fetchPublicProductBySlug, getCachedPublicProductBySlug, type PublicProduct } from '../lib/catalog'
 
 const qtyButtonStyle: React.CSSProperties = {
   width: 46,
@@ -82,13 +83,19 @@ function MiniBadge({ text, compact = false }: { text: string; compact?: boolean 
 
 export default function ProductDetailPage() {
   const { slug } = useParams()
+  const location = useLocation()
   const { token } = useAuth()
   const { addToCart } = useCart()
+  const routeState = location.state as { productPreview?: PublicProduct } | null
+  const previewProduct =
+    routeState?.productPreview && routeState.productPreview.slug === slug ? routeState.productPreview : null
+  const cachedProduct = slug ? getCachedPublicProductBySlug(slug, token) : null
+  const initialProduct = previewProduct || cachedProduct
   const [viewportWidth, setViewportWidth] = useState(() =>
     typeof window === 'undefined' ? 1440 : window.innerWidth,
   )
-  const [remoteProduct, setRemoteProduct] = useState<PublicProduct | null>(null)
-  const [isLoadingProduct, setIsLoadingProduct] = useState(true)
+  const [remoteProduct, setRemoteProduct] = useState<PublicProduct | null>(initialProduct)
+  const [isLoadingProduct, setIsLoadingProduct] = useState(() => !initialProduct && !!slug)
   const [productNotFound, setProductNotFound] = useState(false)
 
   const [quantity, setQuantity] = useState(1)
@@ -102,18 +109,21 @@ export default function ProductDetailPage() {
 
   useEffect(() => {
     let active = true
-
-    setRemoteProduct(null)
     setProductNotFound(false)
-    setIsLoadingProduct(true)
 
     if (!slug) {
+      setRemoteProduct(null)
       setIsLoadingProduct(false)
       setProductNotFound(true)
       return () => {
         active = false
       }
     }
+
+    const currentPreview = previewProduct || getCachedPublicProductBySlug(slug, token)
+
+    setRemoteProduct(currentPreview)
+    setIsLoadingProduct(!currentPreview)
 
     fetchPublicProductBySlug(slug, token)
       .then((product) => {
@@ -125,8 +135,13 @@ export default function ProductDetailPage() {
       })
       .catch(() => {
         if (active) {
-          setRemoteProduct(null)
-          setProductNotFound(true)
+          if (currentPreview) {
+            setRemoteProduct(currentPreview)
+            setProductNotFound(false)
+          } else {
+            setRemoteProduct(null)
+            setProductNotFound(true)
+          }
           setIsLoadingProduct(false)
         }
       })
@@ -134,7 +149,7 @@ export default function ProductDetailPage() {
     return () => {
       active = false
     }
-  }, [slug, token])
+  }, [previewProduct, slug, token])
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -432,9 +447,17 @@ export default function ProductDetailPage() {
                   background: '#0d0d0d',
                 }}
               >
-                <img
+                <StableImage
                   src={currentImage}
                   alt={product.name}
+                  loading="eager"
+                  fetchPriority="high"
+                  containerStyle={{
+                    borderRadius: isMobile ? 18 : 24,
+                  }}
+                  placeholderStyle={{
+                    borderRadius: isMobile ? 18 : 24,
+                  }}
                   style={{
                     width: '100%',
                     height: isMobile ? 430 : 720,
@@ -534,9 +557,16 @@ export default function ProductDetailPage() {
                     transition: '0.25s',
                   }}
                 >
-                  <img
+                  <StableImage
                     src={image}
                     alt={`${product.name} preview ${index + 1}`}
+                    loading="lazy"
+                    containerStyle={{
+                      borderRadius: isMobile ? 10 : 12,
+                    }}
+                    placeholderStyle={{
+                      borderRadius: isMobile ? 10 : 12,
+                    }}
                     style={{
                       width: '100%',
                       height: isMobile ? 86 : 128,

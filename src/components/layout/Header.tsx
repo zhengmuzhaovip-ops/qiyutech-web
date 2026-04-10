@@ -24,18 +24,18 @@ export default function Header() {
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(56,211,159,0.08),transparent_32%),radial-gradient(circle_at_top_right,rgba(74,141,255,0.07),transparent_28%)] opacity-80" />
           <div className="pointer-events-none absolute inset-x-10 top-0 h-px bg-[linear-gradient(90deg,transparent,rgba(56,211,159,0.8),rgba(74,141,255,0.8),transparent)] opacity-80" />
 
-          <div className="relative flex items-center justify-between gap-4 lg:gap-6">
+          <div className="relative flex items-center justify-between gap-2 sm:gap-4 lg:gap-6">
             <Link
               to="/"
-              className="flex min-w-0 items-center gap-2.5 text-white transition hover:opacity-95 sm:gap-3"
+              className="flex min-w-0 items-center gap-2 text-white transition hover:opacity-95 sm:gap-3"
             >
               <img
                 src="/images/logo-new-4-8.png"
                 alt={`${siteSettings.brandName} logo`}
-                className="h-10 w-10 shrink-0 object-contain drop-shadow-[0_0_16px_rgba(72,168,255,0.18)] sm:h-11 sm:w-11"
+                className="h-8 w-8 shrink-0 object-contain drop-shadow-[0_0_16px_rgba(72,168,255,0.18)] sm:h-11 sm:w-11"
               />
               <div className="min-w-0">
-                <span className="block min-w-0 text-[18px] font-semibold uppercase tracking-[0.16em] text-white sm:text-lg sm:tracking-[0.2em]">
+                <span className="block min-w-0 text-[16px] font-semibold uppercase tracking-[0.12em] text-white sm:text-lg sm:tracking-[0.2em]">
                   {siteSettings.brandName}
                 </span>
                 <span className="mt-1 hidden text-[10px] uppercase tracking-[0.24em] text-[#38d39f] lg:block">
@@ -69,7 +69,7 @@ export default function Header() {
               ))}
             </nav>
 
-            <div className="flex items-center gap-2 text-sm sm:gap-3">
+            <div className="flex shrink-0 items-center gap-2 text-sm sm:gap-3">
               <a
                 href={`tel:${siteSettings.phoneUs.replace(/[^\d+]/g, '')}`}
                 className="hidden rounded-full border border-white/10 bg-black/28 px-4 py-2.5 text-[13px] text-neutral-300 transition hover:border-white/20 hover:text-white xl:inline-flex"
@@ -78,15 +78,16 @@ export default function Header() {
               </a>
               <Link
                 to="/cart"
-                className={`inline-flex items-center gap-2 rounded-full border px-4 py-2.5 text-sm font-medium text-white transition hover:-translate-y-0.5 ${
+                className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-2 text-sm font-medium text-white transition hover:-translate-y-0.5 sm:gap-2 sm:px-4 sm:py-2.5 ${
                   hasCartItems
                     ? 'border-emerald-400/25 bg-emerald-400/[0.06] shadow-[0_0_22px_rgba(52,211,153,0.08)] hover:border-emerald-300/45 hover:bg-white hover:text-black'
                     : 'border-white/12 bg-white/[0.04] hover:border-white/30 hover:bg-white hover:text-black'
                 }`}
               >
-                <span>Order Review</span>
+                <span className="whitespace-nowrap sm:hidden">Review</span>
+                <span className="hidden whitespace-nowrap sm:inline">Order Review</span>
                 <span
-                  className={`rounded-full px-2 py-0.5 text-xs ${
+                  className={`rounded-full px-1.5 py-0.5 text-[11px] sm:px-2 sm:text-xs ${
                     hasCartItems
                       ? 'border border-emerald-300/25 bg-emerald-400/15 text-emerald-100 shadow-[0_0_10px_rgba(52,211,153,0.18)]'
                       : 'border border-current/15'

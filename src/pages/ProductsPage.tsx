@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Button, ButtonLink } from '../components/ui/Button'
+import StableImage from '../components/ui/StableImage'
 import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
 import { wholesaleProducts } from '../data/wholesaleProducts'
@@ -93,6 +94,7 @@ function CatalogProductCard({
     >
       <Link
         to={`/products/${product.slug}`}
+        state={{ productPreview: product }}
         style={{
           display: 'block',
           textDecoration: 'none',
@@ -125,12 +127,20 @@ function CatalogProductCard({
                 zIndex: 1,
               }}
             />
-            <img
+            <StableImage
               src={getCatalogFrameImage(product.slug) || product.image}
               alt={product.name}
               loading={prioritizeImage ? 'eager' : 'lazy'}
               fetchPriority={prioritizeImage ? 'high' : 'auto'}
               decoding="async"
+              containerStyle={{
+                borderRadius: 26,
+              }}
+              placeholderStyle={{
+                borderRadius: 26,
+                background:
+                  'radial-gradient(circle at 50% 18%, rgba(255,255,255,0.16), transparent 28%), linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02) 34%, rgba(10,10,10,0.5) 100%), #111111',
+              }}
               style={{
                 width: '100%',
                 height: isMobile ? 260 : 400,
@@ -305,7 +315,7 @@ function CatalogProductCard({
           gap: 10,
         }}
       >
-        <ButtonLink to={`/products/${product.slug}`} variant="secondary">
+        <ButtonLink to={`/products/${product.slug}`} state={{ productPreview: product }} variant="secondary">
           Review Product
         </ButtonLink>
         <Button
